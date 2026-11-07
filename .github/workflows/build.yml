@@ -1,0 +1,27 @@
+Nazwa: Build  na:
+  Push:
+  workflow_dispatch:
+
+Praca:
+  Budowanie:
+  Działa: Ubuntu-Latestubuntu-latest Kroki:
+ - Zastosowania:
+  Kroki:    - Zastosowania: działania/checkout@v4
+
+  - Zastosowania: akcje/konfiguracja-java@v4
+  z: dystrybucją
+  Występowanie: Temurin
+  Wersja Java: 25
+
+  - Zastosowania: gradle/akcje/setup-gradle@v4
+  Z:
+  Wersja Gradle: obecna
+
+-
+  - nazwa: Build  Katalog roboczy: anarchia.ffa/anarchia.ffa
+ Bieg:  Run: build Gradle
+
+-
+  - Zastosowania: akcje/przesyłanie artifact@v4
+  z: Imię: Anarchia.FFA
+ ścieżka: anarchia.ffa/anarchia.ffa/build/libs/*.jar  Imię: anarchia.ffa    ścieżka: anarchia.ffa/anarchia.ffa/build/libs/*.jar
