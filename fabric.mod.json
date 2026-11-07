@@ -1,0 +1,19 @@
+{
+	"schemaVersion": 1,
+	"id": "mymod",
+	"version": "${version}",
+	"name": "Anarchia FFA",
+	"description": "Eventówki, kostiumy i dodatki na anarchię FFA.",
+	"authors": ["Ty"],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.example.mymod.MyMod"]
+	},
+	"depends": {
+		"fabricloader": ">=0.18.6",
+		"minecraft": "~26.1",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
