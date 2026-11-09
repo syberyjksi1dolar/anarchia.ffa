@@ -21,6 +21,9 @@ public class ModItems {
 	public static final Item GRINCH_AXE = register("siekiera_grincha", GrinchAxeItem::new,
 			new Item.Properties().stacksTo(1));
 
+	public static final Item WODNY_TROJZAB = register("wodny_trojzab", WodnyTrojzabItem::new,
+			new Item.Properties().stacksTo(1));
+
 	/** Model korony noszonej na głowie: assets/mymod/equipment/anarchia_korona.json */
 	public static final ResourceKey<EquipmentAsset> KORONA_ASSET = ResourceKey.create(
 			EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, "anarchia_korona"));

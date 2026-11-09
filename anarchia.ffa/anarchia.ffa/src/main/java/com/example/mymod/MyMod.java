@@ -27,6 +27,7 @@ public class MyMod implements ModInitializer {
 		ChydroKlatkaManager.initialize();
 		GrinchAxeHandler.initialize();
 		AnarchiaKoronaHandler.initialize();
+		WodnyTrojzabManager.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -35,6 +36,7 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.CHYDRO_KLATKA);
 					output.accept(ModItems.GRINCH_AXE);
 					output.accept(ModItems.ANARCHIA_KORONA);
+					output.accept(ModItems.WODNY_TROJZAB);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();
