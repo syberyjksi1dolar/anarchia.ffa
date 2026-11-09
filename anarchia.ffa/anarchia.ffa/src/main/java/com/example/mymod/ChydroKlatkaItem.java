@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Chydro: prawy klik wystrzeliwuje kulę ognistą jak ghast (bez wybuchu, nie niszczy bloków).
- * Tam, gdzie kula trafi, powstaje klatka z niebieskiego koralowca (6 x 9 x 6) na 8 sekund.
+ * Tam, gdzie kula trafi, powstaje klatka z niebieskiego koralowca (6 x 9, 6 bloków w dół) na 15 sekund.
  * Przedmiot jest nieskończony, cooldown: 1 minuta.
  */
 public class ChydroKlatkaItem extends Item {
