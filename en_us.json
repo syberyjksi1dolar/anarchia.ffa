@@ -3,5 +3,13 @@
   "item.mymod.siekiera_grincha": "Grinch's Axe",
   "block.mymod.chydro_koral": "Chydro Coral",
   "block.mymod.chydro_pajeczyna": "Chydro Web",
-  "creativeTab.mymod.eventowki": "Eventowki"
+  "creativeTab.mymod.eventowki": "Eventowki",
+  "item.mymod.anarchia_korona": "Anarchia Crown",
+  "item.mymod.wodny_trojzab": "Water Trident",
+  "block.mymod.zatopiony_statek": "Sunken Ship",
+  "item.mymod.zatopiony_statek": "Sunken Ship",
+  "item.mymod.platek_sniegu": "Snowflake",
+  "item.mymod.czerwony_balon": "Red Balloon",
+  "item.mymod.parasol": "Umbrella",
+  "item.mymod.serce": "Heart"
 }

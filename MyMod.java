@@ -1,7 +1,7 @@
 package com.example.mymod;
 
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.itemgroup.v1.FabricCreativeModeTab;
+import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -26,6 +26,10 @@ public class MyMod implements ModInitializer {
 		ModItems.initialize();
 		ChydroKlatkaManager.initialize();
 		GrinchAxeHandler.initialize();
+		AnarchiaKoronaHandler.initialize();
+		WodnyTrojzabManager.initialize();
+		ZatopionyStatekManager.initialize();
+		EventoweAtakiHandler.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -33,6 +37,13 @@ public class MyMod implements ModInitializer {
 				.displayItems((params, output) -> {
 					output.accept(ModItems.CHYDRO_KLATKA);
 					output.accept(ModItems.GRINCH_AXE);
+					output.accept(ModItems.ANARCHIA_KORONA);
+					output.accept(ModItems.WODNY_TROJZAB);
+					output.accept(ModItems.ZATOPIONY_STATEK);
+					output.accept(ModItems.PLATEK_SNIEGU);
+					output.accept(ModItems.CZERWONY_BALON);
+					output.accept(ModItems.PARASOL);
+					output.accept(ModItems.SERCE);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

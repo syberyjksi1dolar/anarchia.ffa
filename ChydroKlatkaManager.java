@@ -20,7 +20,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.LargeFireball;
+import net.minecraft.world.entity.projectile.hurtingprojectile.LargeFireball;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -35,16 +35,20 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 
 /**
- * Chydro klatka: klatka z niebieskiego koralowca (6 x 9 x 6) na 8 sekund.
+ * Chydro klatka: klatka (6 x 9, 6 bloków w dół od trafienia (trafienie na Y -2 → podłoga na Y -8)) na 15 sekund.
+ * Ściany i sufit są ze zwykłego szkła, podłoga i wszystkie bloki-przeszkody w środku z niebieskiego koralowca.
  *
  * Zasady wewnątrz klatki:
  *  - właściciel (ten, kto użył chydro) może niszczyć bloki w środku i na podłodze, ale nie ściany ani sufit,
- *  - właściciel może stawiać tylko pajęczyny, które zmieniają się w pełny blok,
+ *  - właściciel może stawiać tylko zwykłe pajęczyny (działają normalnie),
  *  - nikt inny nie może niczego niszczyć ani stawiać,
- *  - po 8 sekundach koralowiec wraca do poprzednich bloków, a "blokowe" pajęczyny stają się zwykłymi.
+ *  - po 15 sekundach wszystkie podmienione bloki wracają do poprzednich.
  */
 public final class ChydroKlatkaManager {
-	public static final int DURATION_TICKS = 8 * 20; // 8 sekund
+	public static final int DURATION_TICKS = 15 * 20; // 15 sekund
+
+	/** Ile bloków w dół od miejsca trafienia sięga klatka. */
+	private static final int DEPTH_BELOW = 6;
 
 	private static final int WIDTH = 6;  // oś X
 	private static final int LENGTH = 9; // oś Z
@@ -69,7 +73,6 @@ public final class ChydroKlatkaManager {
 		final long expiresAt;
 		final int minX, maxX, minY, maxY, minZ, maxZ;
 		final Map<BlockPos, BlockState> originals = new LinkedHashMap<>();
-		final Set<BlockPos> webs = new HashSet<>();
 
 		Cage(ServerLevel level, UUID owner, long expiresAt, int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
 			this.level = level;
@@ -116,33 +119,49 @@ public final class ChydroKlatkaManager {
 		int relMinZ = -(LENGTH / 2);
 		int relMinY = -1; // podłoga tuż pod celem
 
+		// Góra klatki jak dotąd, a dół sięga 6 bloków w dół od miejsca trafienia.
+		int topY = center.getY() + relMinY + HEIGHT - 1;
+		int bottomY = center.getY() - DEPTH_BELOW;
+
 		Cage cage = new Cage(level, owner, level.getGameTime() + DURATION_TICKS,
 				center.getX() + relMinX, center.getX() + relMinX + WIDTH - 1,
-				center.getY() + relMinY, center.getY() + relMinY + HEIGHT - 1,
+				bottomY, topY,
 				center.getZ() + relMinZ, center.getZ() + relMinZ + LENGTH - 1);
 
 		BlockState coral = ModBlocks.CHYDRO_KORAL.defaultBlockState();
+		BlockState glass = Blocks.GLASS.defaultBlockState();
 
 		for (int x = cage.minX; x <= cage.maxX; x++) {
 			for (int z = cage.minZ; z <= cage.maxZ; z++) {
 				for (int y = cage.minY; y <= cage.maxY; y++) {
-					boolean shell = x == cage.minX || x == cage.maxX
-							|| z == cage.minZ || z == cage.maxZ
-							|| y == cage.minY || y == cage.maxY;
-					if (!shell) {
-						continue;
-					}
-
 					BlockPos pos = new BlockPos(x, y, z);
 					if (!level.isInWorldBounds(pos)) {
 						continue;
 					}
 
+					boolean floor = y == cage.minY;
+					boolean wallOrCeiling = cage.isWallOrCeiling(pos);
 					BlockState old = level.getBlockState(pos);
+
+					BlockState replacement;
+					if (wallOrCeiling) {
+						// Ściany i sufit: zwykłe szkło.
+						replacement = glass;
+					} else if (floor) {
+						// Podłoga: niebieski koralowiec.
+						replacement = coral;
+					} else if (!old.isAir()) {
+						// Wnętrze: tylko to, co jest przeszkodą, zamienia się w niebieski koralowiec.
+						replacement = coral;
+					} else {
+						continue;
+					}
+
 					// Nie ruszamy: istniejącej klatki, bloków z zawartością (skrzynie itp.),
-					// bloków nie do zniszczenia (bedrock itd.).
+					// bloków nie do zniszczenia (bedrock itd.), ani bloków, które już są właściwe.
 					if (old.is(ModBlocks.CHYDRO_KORAL)
 							|| old.is(ModBlocks.CHYDRO_PAJECZYNA)
+							|| old.is(replacement.getBlock())
 							|| level.getBlockEntity(pos) != null
 							|| old.getDestroySpeed(level, pos) < 0) {
 						continue;
@@ -151,7 +170,7 @@ public final class ChydroKlatkaManager {
 					cage.originals.put(pos, old);
 					// Flaga UPDATE_CLIENTS: bez aktualizacji sąsiadów, żeby pochodnie, drabiny
 					// i inne nie wypadały podczas podmiany.
-					level.setBlock(pos, coral, Block.UPDATE_CLIENTS);
+					level.setBlock(pos, replacement, Block.UPDATE_CLIENTS);
 				}
 			}
 		}
@@ -196,17 +215,9 @@ public final class ChydroKlatkaManager {
 		}
 
 		boolean isOwner = cage.owner.equals(player.getUUID());
-		if (isOwner && stack.is(Items.COBWEB) && !cage.isWallOrCeiling(placePos) && context.canPlace()) {
-			BlockState web = ModBlocks.CHYDRO_PAJECZYNA.defaultBlockState();
-			if (level.isUnobstructed(web, placePos, CollisionContext.empty())) {
-				level.setBlock(placePos, web, Block.UPDATE_ALL);
-				cage.webs.add(placePos);
-				level.playSound(null, placePos, SoundType.WOOL.getPlaceSound(), SoundSource.BLOCKS, 1.0F, 0.8F);
-				if (!player.getAbilities().instabuild) {
-					stack.shrink(1);
-				}
-				return InteractionResult.SUCCESS;
-			}
+		if (isOwner && stack.is(Items.COBWEB) && !cage.isWallOrCeiling(placePos)) {
+			// Zwykła pajęczyna, stawiana normalnie (działa jak w grze).
+			return InteractionResult.PASS;
 		}
 
 		// Każdy inny blok: odmowa, a blok zostaje w ekwipunku (wymuszamy odświeżenie ekwipunku u gracza).
@@ -252,17 +263,11 @@ public final class ChydroKlatkaManager {
 	private static void restore(Cage cage) {
 		for (Map.Entry<BlockPos, BlockState> entry : cage.originals.entrySet()) {
 			BlockPos pos = entry.getKey();
-			// Przywracamy tylko tam, gdzie nadal jest koralowiec klatki,
+			// Przywracamy tylko tam, gdzie nadal jest koralowiec albo szkło klatki,
 			// żeby nie nadpisać czegoś, co ktoś w międzyczasie postawił.
-			if (cage.level.getBlockState(pos).is(ModBlocks.CHYDRO_KORAL)) {
+			BlockState now = cage.level.getBlockState(pos);
+			if (now.is(ModBlocks.CHYDRO_KORAL) || now.is(Blocks.GLASS)) {
 				cage.level.setBlock(pos, entry.getValue(), Block.UPDATE_CLIENTS);
-			}
-		}
-
-		// Pajęczyny w postaci pełnych bloków wracają do zwykłych pajęczyn.
-		for (BlockPos pos : cage.webs) {
-			if (cage.level.getBlockState(pos).is(ModBlocks.CHYDRO_PAJECZYNA)) {
-				cage.level.setBlock(pos, Blocks.COBWEB.defaultBlockState(), Block.UPDATE_ALL);
 			}
 		}
 	}

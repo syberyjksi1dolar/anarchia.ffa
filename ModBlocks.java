@@ -31,6 +31,13 @@ public class ModBlocks {
 					.sound(SoundType.WOOL)
 					.strength(1.0F, 3600000.0F));
 
+	/** Zatopiony Statek: blok wody w szkle ze statkiem w środku, osłabia wszystkich dookoła oprócz właściciela. */
+	public static final Block ZATOPIONY_STATEK = register("zatopiony_statek", ZatopionyStatekBlock::new,
+			BlockBehaviour.Properties.of()
+					.mapColor(MapColor.COLOR_BLUE)
+					.sound(SoundType.GLASS)
+					.strength(1.0F));
+
 	public static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory,
 			BlockBehaviour.Properties properties) {
 		ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));

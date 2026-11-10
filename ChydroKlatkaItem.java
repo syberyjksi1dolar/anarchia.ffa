@@ -6,7 +6,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.projectile.LargeFireball;
+import net.minecraft.world.entity.projectile.hurtingprojectile.LargeFireball;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Chydro: prawy klik wystrzeliwuje kulę ognistą jak ghast (bez wybuchu, nie niszczy bloków).
- * Tam, gdzie kula trafi, powstaje klatka z niebieskiego koralowca (6 x 9 x 6) na 8 sekund.
+ * Tam, gdzie kula trafi, powstaje klatka z niebieskiego koralowca (6 x 9, 6 bloków w dół) na 15 sekund.
  * Przedmiot jest nieskończony, cooldown: 1 minuta.
  */
 public class ChydroKlatkaItem extends Item {
