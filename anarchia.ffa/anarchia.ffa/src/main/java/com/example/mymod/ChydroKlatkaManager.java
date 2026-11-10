@@ -50,9 +50,9 @@ public final class ChydroKlatkaManager {
 	/** Ile bloków w dół od miejsca trafienia sięga klatka. */
 	private static final int DEPTH_BELOW = 6;
 
-	private static final int WIDTH = 6;  // oś X
-	private static final int LENGTH = 9; // oś Z
-	private static final int HEIGHT = 6; // oś Y
+	private static final int WIDTH = 16; // oś X
+	private static final int LENGTH = 16; // oś Z
+	private static final int HEIGHT = 16; // oś Y
 
 	private static final List<Cage> CAGES = new ArrayList<>();
 
@@ -73,6 +73,7 @@ public final class ChydroKlatkaManager {
 		final long expiresAt;
 		final int minX, maxX, minY, maxY, minZ, maxZ;
 		final Map<BlockPos, BlockState> originals = new LinkedHashMap<>();
+		final List<BlockPos> walls = new ArrayList<>(); // szkło do odbudowy po wybuchach
 
 		Cage(ServerLevel level, UUID owner, long expiresAt, int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
 			this.level = level;
@@ -119,9 +120,9 @@ public final class ChydroKlatkaManager {
 		int relMinZ = -(LENGTH / 2);
 		int relMinY = -1; // podłoga tuż pod celem
 
-		// Góra klatki jak dotąd, a dół sięga 6 bloków w dół od miejsca trafienia.
-		int topY = center.getY() + relMinY + HEIGHT - 1;
+		// Dół sięga 6 bloków w dół od miejsca trafienia, a klatka ma 16 bloków wysokości.
 		int bottomY = center.getY() - DEPTH_BELOW;
+		int topY = bottomY + HEIGHT - 1;
 
 		Cage cage = new Cage(level, owner, level.getGameTime() + DURATION_TICKS,
 				center.getX() + relMinX, center.getX() + relMinX + WIDTH - 1,
@@ -157,6 +158,10 @@ public final class ChydroKlatkaManager {
 						continue;
 					}
 
+					if (wallOrCeiling && old.is(Blocks.GLASS)) {
+						cage.walls.add(pos);
+					}
+
 					// Nie ruszamy: istniejącej klatki, bloków z zawartością (skrzynie itp.),
 					// bloków nie do zniszczenia (bedrock itd.), ani bloków, które już są właściwe.
 					if (old.is(ModBlocks.CHYDRO_KORAL)
@@ -168,6 +173,9 @@ public final class ChydroKlatkaManager {
 					}
 
 					cage.originals.put(pos, old);
+					if (wallOrCeiling) {
+						cage.walls.add(pos);
+					}
 					// Flaga UPDATE_CLIENTS: bez aktualizacji sąsiadów, żeby pochodnie, drabiny
 					// i inne nie wypadały podczas podmiany.
 					level.setBlock(pos, replacement, Block.UPDATE_CLIENTS);
@@ -245,6 +253,12 @@ public final class ChydroKlatkaManager {
 		Iterator<Cage> it = CAGES.iterator();
 		while (it.hasNext()) {
 			Cage cage = it.next();
+			// Wybuchy (creeper, TNT itd.) nie rozwalają szkła: zepsute od razu odbudowujemy.
+			for (BlockPos wall : cage.walls) {
+				if (!cage.level.getBlockState(wall).is(Blocks.GLASS)) {
+					cage.level.setBlock(wall, Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS);
+				}
+			}
 			if (cage.level.getGameTime() >= cage.expiresAt) {
 				restore(cage);
 				it.remove();

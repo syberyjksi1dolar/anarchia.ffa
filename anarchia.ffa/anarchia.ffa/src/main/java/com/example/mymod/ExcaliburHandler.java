@@ -15,6 +15,16 @@ public final class ExcaliburHandler {
 	}
 
 	public static void initialize() {
+		// Excalibur się nie niszczy: co tick naprawiamy go do pełna.
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+			for (net.minecraft.server.level.ServerPlayer p : server.getPlayerList().getPlayers()) {
+				for (net.minecraft.world.item.ItemStack s : new net.minecraft.world.item.ItemStack[] { p.getMainHandItem(), p.getOffhandItem() }) {
+					if (s.is(ModItems.EXCALIBUR) && s.isDamaged()) {
+						s.setDamageValue(0);
+					}
+				}
+			}
+		});
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
 			if (inside || blocked || !(entity.level() instanceof ServerLevel level)) {
 				return;

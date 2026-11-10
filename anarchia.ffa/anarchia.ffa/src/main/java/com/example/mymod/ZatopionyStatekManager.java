@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -32,7 +33,7 @@ public final class ZatopionyStatekManager {
 	public static final double RADIUS = 14.0;
 	/** Jak długo po postawieniu statek działa (efekty trwają maksymalnie tyle samo). */
 	public static final int ACTIVE_TICKS = 10 * 20; // 10 sekund
-	private static final int REFRESH_EVERY_TICKS = 20;
+	private static final int REFRESH_EVERY_TICKS = 10;
 
 	private record Buff(String effectId, int amplifier) {
 	}
@@ -56,7 +57,16 @@ public final class ZatopionyStatekManager {
 				tick();
 			}
 		});
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> SHIPS.clear());
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			for (Ship ship : SHIPS) {
+				if (ship.level().getBlockState(ship.pos()).is(ModBlocks.ZATOPIONY_STATEK)) {
+					ship.level().removeBlock(ship.pos(), false);
+				}
+			}
+			SHIPS.clear();
+		});
+		// Statek jest niezniszczalny, dopóki działa.
+		PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) -> !state.is(ModBlocks.ZATOPIONY_STATEK));
 	}
 
 	public static void register(ServerLevel level, BlockPos pos, UUID owner) {
@@ -73,17 +83,22 @@ public final class ZatopionyStatekManager {
 			BlockPos pos = ship.pos();
 
 			if (level.getGameTime() >= ship.expiresAt()) {
-				it.remove(); // minęło 10 sekund: statek przestaje działać (sam blok zostaje)
+				it.remove(); // minęło 10 sekund: statek znika
+				if (level.hasChunkAt(pos) && level.getBlockState(pos).is(ModBlocks.ZATOPIONY_STATEK)) {
+					level.removeBlock(pos, false);
+				}
 				continue;
 			}
 			if (!level.hasChunkAt(pos)) {
 				continue; // chunk niezaładowany: poczekaj
 			}
 			if (!level.getBlockState(pos).is(ModBlocks.ZATOPIONY_STATEK)) {
-				it.remove(); // blok zniszczony
+				it.remove(); // blok zniknął
 				continue;
 			}
-			apply(ship);
+			if (level.getGameTime() % 20 < REFRESH_EVERY_TICKS) {
+				apply(ship);
+			}
 		}
 	}
 

@@ -33,6 +33,9 @@ public class CzerwonyBalonItem extends Item {
 		EffectUtil.give(player, "levitation", LEVITATION_TICKS, 1);   // Lewitacja II
 		EffectUtil.give(player, "slow_falling", SLOW_FALL_TICKS, 0);  // miękkie lądowanie
 		player.getCooldowns().addCooldown(stack, COOLDOWN_TICKS);
+		if (!player.getAbilities().instabuild) {
+			stack.shrink(1); // zużywalny: 64, 63, 62...
+		}
 		return InteractionResult.SUCCESS;
 	}
 }

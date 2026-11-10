@@ -36,7 +36,7 @@ public class ModBlocks {
 			BlockBehaviour.Properties.of()
 					.mapColor(MapColor.COLOR_BLUE)
 					.sound(SoundType.GLASS)
-					.strength(1.0F));
+					.strength(-1.0F, 3600000.0F)); // niezniszczalny, znika sam po 10 s
 
 	public static final Block BLOK_WIDMO = register("blok_widmo", BlokWidmoBlock::new,
 			BlockBehaviour.Properties.of()

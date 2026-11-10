@@ -34,10 +34,16 @@ public final class EventoweAtakiHandler {
 				EffectUtil.give(target, "slowness", FREEZE_TICKS, 6);     // Spowolnienie VII: stoi w miejscu
 				EffectUtil.give(target, "jump_boost", FREEZE_TICKS, 128); // brak skoku
 				player.getCooldowns().addCooldown(stack, FREEZE_COOLDOWN_TICKS);
+				if (!player.getAbilities().instabuild) {
+					stack.shrink(1);
+				}
 			} else if (stack.is(ModItems.SERCE) && !player.getCooldowns().isOnCooldown(stack)) {
 				EffectUtil.give(target, "slowness", HEART_TICKS, 2);      // Spowolnienie III
 				EffectUtil.give(target, "blindness", HEART_TICKS, 0);     // Ślepota
 				player.getCooldowns().addCooldown(stack, HEART_COOLDOWN_TICKS);
+				if (!player.getAbilities().instabuild) {
+					stack.shrink(1);
+				}
 			}
 			return InteractionResult.PASS; // normalne uderzenie nadal się odbywa
 		});

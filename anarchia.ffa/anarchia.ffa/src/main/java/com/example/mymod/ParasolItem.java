@@ -52,6 +52,9 @@ public class ParasolItem extends Item {
 		}
 
 		player.getCooldowns().addCooldown(stack, COOLDOWN_TICKS);
+		if (!player.getAbilities().instabuild) {
+			stack.shrink(1); // zużywalny: 64, 63, 62...
+		}
 		return InteractionResult.SUCCESS;
 	}
 }

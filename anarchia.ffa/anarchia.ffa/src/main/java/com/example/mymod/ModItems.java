@@ -31,21 +31,27 @@ public class ModItems {
 			new Item.Properties());
 
 	public static final Item PLATEK_SNIEGU = register("platek_sniegu", Item::new,
-			new Item.Properties().stacksTo(1));
+			new Item.Properties().stacksTo(64));
 
 	public static final Item CZERWONY_BALON = register("czerwony_balon", CzerwonyBalonItem::new,
-			new Item.Properties().stacksTo(1));
+			new Item.Properties().stacksTo(64));
 
 	public static final Item PARASOL = register("parasol", ParasolItem::new,
-			new Item.Properties().stacksTo(1));
+			new Item.Properties().stacksTo(64));
 
 	public static final Item SERCE = register("serce", Item::new,
-			new Item.Properties().stacksTo(1));
+			new Item.Properties().stacksTo(64));
 
 	public static final Item EXCALIBUR = register("excalibur", Item::new,
 			new Item.Properties().stacksTo(1)
 					.sword(ToolMaterial.NETHERITE, 3.0F, -2.4F)
 					.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
+
+	public static final Item TOTEM_ULASKAWIENIA = register("totem_ulaskawienia", Item::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item ROZDZKA_ILUZJONISTY = register("rozdzka_iluzjonisty", RozdzkaIluzjonistyItem::new,
+			new Item.Properties().stacksTo(1));
 
 	public static final Item BLOK_WIDMO = register("blok_widmo",
 			props -> new BlockItem(ModBlocks.BLOK_WIDMO, props),
