@@ -38,6 +38,12 @@ public class ModBlocks {
 					.sound(SoundType.GLASS)
 					.strength(1.0F));
 
+	public static final Block BLOK_WIDMO = register("blok_widmo", BlokWidmoBlock::new,
+			BlockBehaviour.Properties.of()
+					.mapColor(MapColor.SNOW)
+					.sound(SoundType.GLASS)
+					.strength(1.0F));
+
 	public static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory,
 			BlockBehaviour.Properties properties) {
 		ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));

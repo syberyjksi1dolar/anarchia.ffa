@@ -30,6 +30,7 @@ public class MyMod implements ModInitializer {
 		WodnyTrojzabManager.initialize();
 		ZatopionyStatekManager.initialize();
 		EventoweAtakiHandler.initialize();
+		ExcaliburHandler.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -44,6 +45,8 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.CZERWONY_BALON);
 					output.accept(ModItems.PARASOL);
 					output.accept(ModItems.SERCE);
+					output.accept(ModItems.EXCALIBUR);
+					output.accept(ModItems.BLOK_WIDMO);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

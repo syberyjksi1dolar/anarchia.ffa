@@ -11,6 +11,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.equipment.EquipmentAsset;
 import net.minecraft.world.item.equipment.EquipmentAssets;
 import net.minecraft.world.item.equipment.Equippable;
@@ -40,6 +41,15 @@ public class ModItems {
 
 	public static final Item SERCE = register("serce", Item::new,
 			new Item.Properties().stacksTo(1));
+
+	public static final Item EXCALIBUR = register("excalibur", Item::new,
+			new Item.Properties().stacksTo(1)
+					.sword(ToolMaterial.NETHERITE, 3.0F, -2.4F)
+					.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
+
+	public static final Item BLOK_WIDMO = register("blok_widmo",
+			props -> new BlockItem(ModBlocks.BLOK_WIDMO, props),
+			new Item.Properties());
 
 	/** Model korony noszonej na głowie: assets/mymod/equipment/anarchia_korona.json */
 	public static final ResourceKey<EquipmentAsset> KORONA_ASSET = ResourceKey.create(

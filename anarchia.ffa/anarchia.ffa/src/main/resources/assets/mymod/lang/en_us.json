@@ -11,5 +11,8 @@
   "item.mymod.platek_sniegu": "Snowflake",
   "item.mymod.czerwony_balon": "Red Balloon",
   "item.mymod.parasol": "Umbrella",
-  "item.mymod.serce": "Heart"
+  "item.mymod.serce": "Heart",
+  "item.mymod.excalibur": "Excalibur",
+  "item.mymod.blok_widmo": "Blok Widmo",
+  "block.mymod.blok_widmo": "Blok Widmo"
 }
