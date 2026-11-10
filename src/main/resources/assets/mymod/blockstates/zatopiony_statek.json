@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "mymod:block/zatopiony_statek"
+    }
+  }
+}
