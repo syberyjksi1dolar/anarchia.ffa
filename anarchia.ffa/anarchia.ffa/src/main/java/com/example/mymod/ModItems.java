@@ -9,6 +9,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.equipment.EquipmentAsset;
 import net.minecraft.world.item.equipment.EquipmentAssets;
@@ -22,6 +23,22 @@ public class ModItems {
 			new Item.Properties().stacksTo(1));
 
 	public static final Item WODNY_TROJZAB = register("wodny_trojzab", WodnyTrojzabItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item ZATOPIONY_STATEK = register("zatopiony_statek",
+			props -> new BlockItem(ModBlocks.ZATOPIONY_STATEK, props),
+			new Item.Properties());
+
+	public static final Item PLATEK_SNIEGU = register("platek_sniegu", Item::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item CZERWONY_BALON = register("czerwony_balon", CzerwonyBalonItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item PARASOL = register("parasol", ParasolItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item SERCE = register("serce", Item::new,
 			new Item.Properties().stacksTo(1));
 
 	/** Model korony noszonej na głowie: assets/mymod/equipment/anarchia_korona.json */

@@ -28,6 +28,8 @@ public class MyMod implements ModInitializer {
 		GrinchAxeHandler.initialize();
 		AnarchiaKoronaHandler.initialize();
 		WodnyTrojzabManager.initialize();
+		ZatopionyStatekManager.initialize();
+		EventoweAtakiHandler.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -37,6 +39,11 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.GRINCH_AXE);
 					output.accept(ModItems.ANARCHIA_KORONA);
 					output.accept(ModItems.WODNY_TROJZAB);
+					output.accept(ModItems.ZATOPIONY_STATEK);
+					output.accept(ModItems.PLATEK_SNIEGU);
+					output.accept(ModItems.CZERWONY_BALON);
+					output.accept(ModItems.PARASOL);
+					output.accept(ModItems.SERCE);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

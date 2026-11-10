@@ -5,5 +5,11 @@
   "block.mymod.chydro_pajeczyna": "Chydro Web",
   "creativeTab.mymod.eventowki": "Eventowki",
   "item.mymod.anarchia_korona": "Anarchia Crown",
-  "item.mymod.wodny_trojzab": "Water Trident"
+  "item.mymod.wodny_trojzab": "Water Trident",
+  "block.mymod.zatopiony_statek": "Sunken Ship",
+  "item.mymod.zatopiony_statek": "Sunken Ship",
+  "item.mymod.platek_sniegu": "Snowflake",
+  "item.mymod.czerwony_balon": "Red Balloon",
+  "item.mymod.parasol": "Umbrella",
+  "item.mymod.serce": "Heart"
 }
