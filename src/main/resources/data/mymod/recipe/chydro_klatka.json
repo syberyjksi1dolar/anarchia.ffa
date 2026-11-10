@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "TCT",
+    "CNC",
+    "TCT"
+  ],
+  "key": {
+    "T": "minecraft:ghast_tear",
+    "C": "minecraft:tube_coral_block",
+    "N": "minecraft:nether_star"
+  },
+  "result": {
+    "id": "mymod:chydro_klatka"
+  }
+}
