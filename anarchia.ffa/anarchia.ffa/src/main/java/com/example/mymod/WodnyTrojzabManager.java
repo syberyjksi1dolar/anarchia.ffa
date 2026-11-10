@@ -11,7 +11,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -75,7 +74,6 @@ public final class WodnyTrojzabManager {
 		long now = level.getGameTime();
 		int left = secondsLeft(TORPEDO_READY_AT, player, now);
 		if (left > 0) {
-			player.displayClientMessage(Component.literal("Torpeda: cooldown " + left + " s"), true);
 			return;
 		}
 
@@ -93,7 +91,6 @@ public final class WodnyTrojzabManager {
 		long now = level.getGameTime();
 		int left = secondsLeft(THROW_READY_AT, player, now);
 		if (left > 0) {
-			player.displayClientMessage(Component.literal("Wystrzał: cooldown " + left + " s"), true);
 			return;
 		}
 
