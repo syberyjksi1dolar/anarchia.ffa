@@ -36,6 +36,9 @@ public class MyMod implements ModInitializer {
 		WzmocnionaElytraHandler.initialize();
 		SakiewkaItem.initialize();
 		LatarniaManager.initialize();
+		WampirzeJablkoItem.initialize();
+		WedkaNielotaManager.initialize();
+		ZmutowanyCreeperManager.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -58,6 +61,10 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.SAKIEWKA);
 					output.accept(ModItems.KREW_WAMPIRA);
 					output.accept(ModItems.CUDOWNA_LATARNIA);
+					output.accept(ModItems.BOMBA_MAKSIMA);
+					output.accept(ModItems.WAMPIRZE_JABLKO);
+					output.accept(ModItems.WEDKA_NIELOTA);
+					output.accept(ModItems.JAJKO_ZMUTOWANEGO_CREEPERA);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

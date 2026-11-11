@@ -21,5 +21,9 @@
   "item.mymod.sakiewka": "Sakiewka",
   "item.mymod.krew_wampira": "Krew Wampira",
   "item.mymod.cudowna_latarnia": "Cudowna Latarnia",
-  "block.mymod.cudowna_latarnia": "Cudowna Latarnia"
+  "block.mymod.cudowna_latarnia": "Cudowna Latarnia",
+  "item.mymod.bomba_maksima": "Bomba Maksima",
+  "item.mymod.wampirze_jablko": "Wampirze Jabłko",
+  "item.mymod.wedka_nielota": "Wędka Nielota",
+  "item.mymod.jajko_zmutowanego_creepera": "Jajko Zmutowanego Creepera"
 }

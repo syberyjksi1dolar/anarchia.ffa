@@ -1,9 +1,17 @@
 package com.example.mymod;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.core.NonNullList;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -53,6 +61,18 @@ public class SakiewkaItem extends Item {
 	/** Odczyt zawartości przez refleksję, bo nazwa metody różni się między wersjami gry. */
 	private static List<ItemStack> readContents(ItemContainerContents contents) {
 		List<ItemStack> out = new ArrayList<>();
+		try {
+			NonNullList<ItemStack> list = NonNullList.withSize(SLOTS, ItemStack.EMPTY);
+			ItemContainerContents.class.getMethod("copyInto", NonNullList.class).invoke(contents, list);
+			for (ItemStack stack : list) {
+				if (!stack.isEmpty()) {
+					out.add(stack.copy());
+				}
+			}
+			return out;
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			out.clear();
+		}
 		for (String name : new String[] { "nonEmptyItems", "nonEmptyItemsCopy", "nonEmptyItemCopyStream",
 				"allItemsCopyStream", "allItems", "stream" }) {
 			try {
@@ -136,35 +156,66 @@ public class SakiewkaItem extends Item {
 		return InteractionResult.SUCCESS;
 	}
 
+	/** Zabicie zapamiętane do chwili, aż wypadną przedmioty. */
+	private record Kill(ServerLevel level, UUID killer, Vec3 pos, long time) {
+	}
+
+	private static final List<Kill> KILLS = new ArrayList<>();
+
 	/** Przechwytuje przedmioty wypadające z zabitego bytu do sakiewki zabójcy. */
 	public static void initialize() {
-		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-			if (!(source.getEntity() instanceof ServerPlayer killer) || entity == killer) {
-				return;
+		// Zapamiętujemy, kto i gdzie zabił; przedmioty łapiemy pod koniec ticka, kiedy już wypadną.
+		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
+			if (source.getEntity() instanceof ServerPlayer killer && entity != killer
+					&& entity.level() instanceof ServerLevel level) {
+				KILLS.add(new Kill(level, killer.getUUID(), entity.position(), level.getGameTime()));
 			}
-			ItemStack pouch = ItemStack.EMPTY;
-			for (int i = 0; i < killer.getInventory().getContainerSize(); i++) {
-				ItemStack s = killer.getInventory().getItem(i);
-				if (s.is(ModItems.SAKIEWKA)) {
-					pouch = s;
-					break;
-				}
-			}
-			if (pouch.isEmpty()) {
-				return;
-			}
-			SimpleContainer container = load(pouch);
-			List<ItemEntity> drops = entity.level().getEntitiesOfClass(ItemEntity.class,
-					entity.getBoundingBox().inflate(3.0), e -> e.tickCount < 2);
-			for (ItemEntity drop : drops) {
-				ItemStack rest = container.addItem(drop.getItem().copy());
-				if (rest.isEmpty()) {
-					drop.discard();
-				} else {
-					drop.setItem(rest);
-				}
-			}
-			save(pouch, container);
+			return true;
 		});
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			Iterator<Kill> it = KILLS.iterator();
+			while (it.hasNext()) {
+				Kill kill = it.next();
+				ServerLevel level = kill.level();
+				ServerPlayer killer = server.getPlayerList().getPlayer(kill.killer());
+				long age = level.getGameTime() - kill.time();
+				if (killer != null) {
+					collect(level, killer, kill.pos());
+				}
+				if (age > 5 || killer == null) {
+					it.remove();
+				}
+			}
+		});
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> KILLS.clear());
+	}
+
+	private static void collect(ServerLevel level, ServerPlayer killer, Vec3 pos) {
+		ItemStack pouch = ItemStack.EMPTY;
+		for (int i = 0; i < killer.getInventory().getContainerSize(); i++) {
+			ItemStack s = killer.getInventory().getItem(i);
+			if (s.is(ModItems.SAKIEWKA)) {
+				pouch = s;
+				break;
+			}
+		}
+		if (pouch.isEmpty()) {
+			return;
+		}
+		AABB box = new AABB(pos.x - 4, pos.y - 3, pos.z - 4, pos.x + 4, pos.y + 4, pos.z + 4);
+		List<ItemEntity> drops = level.getEntitiesOfClass(ItemEntity.class, box, e -> e.tickCount <= 4);
+		if (drops.isEmpty()) {
+			return;
+		}
+		SimpleContainer container = load(pouch);
+		for (ItemEntity drop : drops) {
+			ItemStack rest = container.addItem(drop.getItem().copy());
+			if (rest.isEmpty()) {
+				drop.discard();
+			} else {
+				drop.setItem(rest);
+			}
+		}
+		save(pouch, container);
 	}
 }

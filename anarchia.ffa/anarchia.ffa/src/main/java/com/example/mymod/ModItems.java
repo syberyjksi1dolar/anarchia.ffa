@@ -11,6 +11,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Unit;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.FishingRodItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.equipment.EquipmentAsset;
@@ -73,6 +75,20 @@ public class ModItems {
 	public static final Item CUDOWNA_LATARNIA = register("cudowna_latarnia",
 			props -> new CudownaLatarniaItem(ModBlocks.CUDOWNA_LATARNIA, props),
 			new Item.Properties().stacksTo(1));
+
+	public static final Item BOMBA_MAKSIMA = register("bomba_maksima", BombaMaksimaItem::new,
+			new Item.Properties().stacksTo(64));
+
+	public static final Item WAMPIRZE_JABLKO = register("wampirze_jablko", WampirzeJablkoItem::new,
+			new Item.Properties().stacksTo(64)
+					.food(new FoodProperties.Builder().nutrition(4).saturationModifier(0.3F).alwaysEat().build()));
+
+	// Zwykła wędka bez wytrzymałości (nie niszczy się); działanie w WedkaNielotaManager.
+	public static final Item WEDKA_NIELOTA = register("wedka_nielota", FishingRodItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item JAJKO_ZMUTOWANEGO_CREEPERA = register("jajko_zmutowanego_creepera", JajkoCreeperaItem::new,
+			new Item.Properties().stacksTo(64));
 
 	/** Model korony noszonej na głowie: assets/mymod/equipment/anarchia_korona.json */
 	public static final ResourceKey<EquipmentAsset> KORONA_ASSET = ResourceKey.create(
