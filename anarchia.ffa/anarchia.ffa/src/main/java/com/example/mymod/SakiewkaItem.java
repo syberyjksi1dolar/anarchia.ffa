@@ -50,13 +50,50 @@ public class SakiewkaItem extends Item {
 		}
 	}
 
+	/** Odczyt zawartości przez refleksję, bo nazwa metody różni się między wersjami gry. */
+	private static List<ItemStack> readContents(ItemContainerContents contents) {
+		List<ItemStack> out = new ArrayList<>();
+		for (String name : new String[] { "nonEmptyItems", "nonEmptyItemsCopy", "nonEmptyItemCopyStream",
+				"allItemsCopyStream", "allItems", "stream" }) {
+			try {
+				Object result = ItemContainerContents.class.getMethod(name).invoke(contents);
+				Iterable<?> iterable = null;
+				if (result instanceof Iterable<?> it) {
+					iterable = it;
+				} else if (result instanceof java.util.stream.Stream<?> st) {
+					iterable = st.toList();
+				}
+				if (iterable != null) {
+					for (Object o : iterable) {
+						if (o instanceof ItemStack stack && !stack.isEmpty()) {
+							out.add(stack.copy());
+						}
+					}
+					return out;
+				}
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				// próbujemy następną nazwę
+			}
+		}
+		try {
+			int slots = (int) ItemContainerContents.class.getMethod("getSlots").invoke(contents);
+			for (int i = 0; i < slots; i++) {
+				Object o = ItemContainerContents.class.getMethod("getStackInSlot", int.class).invoke(contents, i);
+				if (o instanceof ItemStack stack && !stack.isEmpty()) {
+					out.add(stack.copy());
+				}
+			}
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			// brak zawartości do odczytu
+		}
+		return out;
+	}
+
 	private static SimpleContainer load(ItemStack pouch) {
 		PouchContainer container = new PouchContainer(pouch);
 		ItemContainerContents contents = pouch.getOrDefault(DataComponents.CONTAINER, ItemContainerContents.EMPTY);
 		List<ItemStack> items = new ArrayList<>();
-		for (ItemStack stack : contents.nonEmptyItemsCopy()) {
-			items.add(stack.copy());
-		}
+		items.addAll(readContents(contents));
 		for (int i = 0; i < items.size() && i < SLOTS; i++) {
 			container.setItem(i, items.get(i));
 		}
