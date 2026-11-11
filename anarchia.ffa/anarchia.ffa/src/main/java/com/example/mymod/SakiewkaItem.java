@@ -31,13 +31,36 @@ public class SakiewkaItem extends Item {
 		super(properties);
 	}
 
+	/** Skrzynia sakiewki: każda zmiana od razu zapisuje się w przedmiocie. */
+	private static final class PouchContainer extends SimpleContainer {
+		private final ItemStack pouch;
+		private boolean loading = true;
+
+		PouchContainer(ItemStack pouch) {
+			super(SLOTS);
+			this.pouch = pouch;
+		}
+
+		@Override
+		public void setChanged() {
+			super.setChanged();
+			if (!loading) {
+				save(pouch, this);
+			}
+		}
+	}
+
 	private static SimpleContainer load(ItemStack pouch) {
-		SimpleContainer container = new SimpleContainer(SLOTS);
+		PouchContainer container = new PouchContainer(pouch);
 		ItemContainerContents contents = pouch.getOrDefault(DataComponents.CONTAINER, ItemContainerContents.EMPTY);
-		List<ItemStack> items = contents.stream().map(ItemStack::copy).toList();
+		List<ItemStack> items = new ArrayList<>();
+		for (ItemStack stack : contents.nonEmptyItemsCopy()) {
+			items.add(stack.copy());
+		}
 		for (int i = 0; i < items.size() && i < SLOTS; i++) {
 			container.setItem(i, items.get(i));
 		}
+		container.loading = false;
 		return container;
 	}
 
@@ -70,7 +93,6 @@ public class SakiewkaItem extends Item {
 			save(pouch, container);
 			return InteractionResult.SUCCESS;
 		}
-		container.addListener(c -> save(pouch, container));
 		player.openMenu(new SimpleMenuProvider(
 				(id, inv, p) -> ChestMenu.sixRows(id, inv, container),
 				Component.translatable("item.mymod.sakiewka")));
