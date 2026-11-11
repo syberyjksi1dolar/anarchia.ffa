@@ -39,6 +39,11 @@ public class MyMod implements ModInitializer {
 		WampirzeJablkoItem.initialize();
 		WedkaNielotaManager.initialize();
 		ZmutowanyCreeperManager.initialize();
+		RozgaHandler.initialize();
+		SmoczyMieczHandler.initialize();
+		JednorozecManager.initialize();
+		KosaKlatkaManager.initialize();
+		OffhandEventowkiHandler.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -65,6 +70,14 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.WAMPIRZE_JABLKO);
 					output.accept(ModItems.WEDKA_NIELOTA);
 					output.accept(ModItems.JAJKO_ZMUTOWANEGO_CREEPERA);
+					output.accept(ModItems.ROZGA);
+					output.accept(ModItems.SMOCZY_MIECZ);
+					output.accept(ModItems.ROG_JEDNOROZCA);
+					output.accept(ModItems.KOSA);
+					output.accept(ModItems.KOSTKA_RUBIKA);
+					output.accept(ModItems.ROZA_KUPIDYNA);
+					output.accept(ModItems.CIEPLE_MLEKO);
+					output.accept(ModItems.LIZAK);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

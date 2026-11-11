@@ -90,6 +90,28 @@ public class ModItems {
 	public static final Item JAJKO_ZMUTOWANEGO_CREEPERA = register("jajko_zmutowanego_creepera", JajkoCreeperaItem::new,
 			new Item.Properties().stacksTo(64));
 
+	public static final Item ROZGA = register("rozga", Item::new, new Item.Properties().stacksTo(1));
+
+	public static final Item SMOCZY_MIECZ = register("smoczy_miecz", SmoczyMieczItem::new,
+			new Item.Properties().stacksTo(1)
+					.sword(ToolMaterial.NETHERITE, 3.0F, -2.4F)
+					.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
+
+	public static final Item ROG_JEDNOROZCA = register("rog_jednorozca", RogJednorozcaItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item KOSA = register("kosa", KosaItem::new, new Item.Properties().stacksTo(1));
+
+	public static final Item KOSTKA_RUBIKA = register("kostka_rubika", KostkaRubikaItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item ROZA_KUPIDYNA = register("roza_kupidyna", Item::new, new Item.Properties().stacksTo(1));
+
+	public static final Item CIEPLE_MLEKO = register("cieple_mleko", CieploMlekoItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item LIZAK = register("lizak", Item::new, new Item.Properties().stacksTo(1));
+
 	/** Model korony noszonej na głowie: assets/mymod/equipment/anarchia_korona.json */
 	public static final ResourceKey<EquipmentAsset> KORONA_ASSET = ResourceKey.create(
 			EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, "anarchia_korona"));
