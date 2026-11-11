@@ -33,6 +33,9 @@ public class MyMod implements ModInitializer {
 		ExcaliburHandler.initialize();
 		TotemUlaskawieniaHandler.initialize();
 		RozdzkaIluzjonistyManager.initialize();
+		WzmocnionaElytraHandler.initialize();
+		SakiewkaItem.initialize();
+		LatarniaManager.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -51,6 +54,10 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.BLOK_WIDMO);
 					output.accept(ModItems.TOTEM_ULASKAWIENIA);
 					output.accept(ModItems.ROZDZKA_ILUZJONISTY);
+					output.accept(ModItems.WZMOCNIONA_ELYTRA);
+					output.accept(ModItems.SAKIEWKA);
+					output.accept(ModItems.KREW_WAMPIRA);
+					output.accept(ModItems.CUDOWNA_LATARNIA);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

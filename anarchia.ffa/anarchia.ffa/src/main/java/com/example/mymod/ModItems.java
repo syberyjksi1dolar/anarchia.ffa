@@ -8,6 +8,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.Unit;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -27,8 +28,8 @@ public class ModItems {
 			new Item.Properties().stacksTo(1));
 
 	public static final Item ZATOPIONY_STATEK = register("zatopiony_statek",
-			props -> new BlockItem(ModBlocks.ZATOPIONY_STATEK, props),
-			new Item.Properties());
+			props -> new ZatopionyStatekItem(ModBlocks.ZATOPIONY_STATEK, props),
+			new Item.Properties().stacksTo(1));
 
 	public static final Item PLATEK_SNIEGU = register("platek_sniegu", Item::new,
 			new Item.Properties().stacksTo(64));
@@ -54,8 +55,24 @@ public class ModItems {
 			new Item.Properties().stacksTo(1));
 
 	public static final Item BLOK_WIDMO = register("blok_widmo",
-			props -> new BlockItem(ModBlocks.BLOK_WIDMO, props),
-			new Item.Properties());
+			props -> new BlokWidmoItem(ModBlocks.BLOK_WIDMO, props),
+			new Item.Properties().stacksTo(1));
+
+	public static final Item WZMOCNIONA_ELYTRA = register("wzmocniona_elytra", Item::new,
+			new Item.Properties().stacksTo(1)
+					.component(DataComponents.GLIDER, Unit.INSTANCE)
+					.component(DataComponents.EQUIPPABLE, Equippable.builder(EquipmentSlot.CHEST)
+							.setAsset(EquipmentAssets.ELYTRA).setDamageOnHurt(false).build()));
+
+	public static final Item SAKIEWKA = register("sakiewka", SakiewkaItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item KREW_WAMPIRA = register("krew_wampira", KrewWampiraItem::new,
+			new Item.Properties().stacksTo(16));
+
+	public static final Item CUDOWNA_LATARNIA = register("cudowna_latarnia",
+			props -> new CudownaLatarniaItem(ModBlocks.CUDOWNA_LATARNIA, props),
+			new Item.Properties().stacksTo(1));
 
 	/** Model korony noszonej na głowie: assets/mymod/equipment/anarchia_korona.json */
 	public static final ResourceKey<EquipmentAsset> KORONA_ASSET = ResourceKey.create(

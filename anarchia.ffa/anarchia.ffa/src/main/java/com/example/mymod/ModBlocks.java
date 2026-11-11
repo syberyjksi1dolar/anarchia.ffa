@@ -44,6 +44,15 @@ public class ModBlocks {
 					.sound(SoundType.GLASS)
 					.strength(1.0F));
 
+	/** Cudowna Latarnia: twarda jak obsydian, świeci, sama znika po 20 s. */
+	public static final Block CUDOWNA_LATARNIA = register("cudowna_latarnia", CudownaLatarniaBlock::new,
+			BlockBehaviour.Properties.of()
+					.mapColor(MapColor.GOLD)
+					.sound(SoundType.LANTERN)
+					.requiresCorrectToolForDrops()
+					.lightLevel(state -> 15)
+					.strength(50.0F, 1200.0F));
+
 	public static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory,
 			BlockBehaviour.Properties properties) {
 		ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));

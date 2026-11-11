@@ -27,14 +27,6 @@ public class ZatopionyStatekBlock extends Block {
 		super.setPlacedBy(level, pos, state, placer, stack);
 		if (level instanceof ServerLevel serverLevel) {
 			ZatopionyStatekManager.register(serverLevel, pos, placer == null ? null : placer.getUUID());
-			if (placer instanceof Player player) {
-				// Przedmiot zostaje w ekwipunku (po postawieniu wraca +1, bo gra zaraz odejmie jeden).
-				if (!player.getAbilities().instabuild) {
-					stack.grow(1);
-				}
-				// Cooldown na przedmiocie: do końca nie da się postawić kolejnego statku.
-				player.getCooldowns().addCooldown(stack, PLACE_COOLDOWN_TICKS);
-			}
 		}
 	}
 }
