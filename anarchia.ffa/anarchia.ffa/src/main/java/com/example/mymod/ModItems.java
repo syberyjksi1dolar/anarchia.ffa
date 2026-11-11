@@ -81,7 +81,7 @@ public class ModItems {
 
 	public static final Item WAMPIRZE_JABLKO = register("wampirze_jablko", WampirzeJablkoItem::new,
 			new Item.Properties().stacksTo(64)
-					.food(new FoodProperties.Builder().nutrition(4).saturationModifier(0.3F).alwaysEat().build()));
+					.food(new FoodProperties.Builder().nutrition(4).saturationModifier(0.3F).alwaysEdible().build()));
 
 	// Zwykła wędka bez wytrzymałości (nie niszczy się); działanie w WedkaNielotaManager.
 	public static final Item WEDKA_NIELOTA = register("wedka_nielota", FishingRodItem::new,

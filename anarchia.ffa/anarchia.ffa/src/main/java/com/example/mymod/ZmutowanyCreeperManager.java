@@ -1,18 +1,13 @@
 package com.example.mymod;
 
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
-import net.fabricmc.fabric.api.entity.event.v1.ServerEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.phys.AABB;
@@ -24,33 +19,30 @@ import net.minecraft.world.phys.AABB;
  */
 public final class ZmutowanyCreeperManager {
 	public static final double RADIUS = 4.0;
-	private static final Set<Creeper> CREEPERS = new HashSet<>();
 
 	private ZmutowanyCreeperManager() {
 	}
 
+	private static boolean isMutant(Creeper creeper) {
+		return creeper.getCustomName() != null && "Zmutowany Creeper".equals(creeper.getCustomName().getString());
+	}
+
 	public static void initialize() {
-		ServerEntityEvents.ENTITY_LOAD.register((Entity entity, ServerLevel world) -> {
-			if (entity instanceof Creeper creeper && creeper.getTags().contains(JajkoCreeperaItem.TAG)) {
-				CREEPERS.add(creeper);
-			}
-		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
-			Iterator<Creeper> it = CREEPERS.iterator();
-			while (it.hasNext()) {
-				Creeper creeper = it.next();
-				if (creeper.isRemoved() || !(creeper.level() instanceof ServerLevel level)) {
-					it.remove();
+			for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+				if (!(player.level() instanceof ServerLevel level)) {
 					continue;
 				}
-				if (creeper.getSwelling(1.0F) >= 0.75F) {
-					explode(level, creeper);
-					creeper.discard();
-					it.remove();
+				List<Creeper> creepers = level.getEntitiesOfClass(Creeper.class,
+						player.getBoundingBox().inflate(64.0), c -> c.isAlive() && isMutant(c));
+				for (Creeper creeper : creepers) {
+					if (creeper.getSwelling(1.0F) >= 0.75F) {
+						explode(level, creeper);
+						creeper.discard();
+					}
 				}
 			}
 		});
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> CREEPERS.clear());
 	}
 
 	private static void explode(ServerLevel level, Creeper creeper) {
