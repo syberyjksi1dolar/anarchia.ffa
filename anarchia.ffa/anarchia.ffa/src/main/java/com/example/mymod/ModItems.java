@@ -212,6 +212,9 @@ public class ModItems {
 			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.FEET).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
 
+	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
+			new Item.Properties().stacksTo(1));
+
 	public static <T extends Item> T register(String name, Function<Item.Properties, T> itemFactory, Item.Properties settings) {
 		ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));
 		T item = itemFactory.apply(settings.setId(itemKey));

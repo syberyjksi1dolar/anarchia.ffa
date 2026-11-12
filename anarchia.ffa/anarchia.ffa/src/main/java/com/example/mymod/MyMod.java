@@ -51,6 +51,7 @@ public class MyMod implements ModInitializer {
 		ArcusMagnusItem.initialize();
 		SilaczHandler.initialize();
 		DolarHandler.initialize();
+		PetBalwanekItem.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -110,6 +111,7 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.DOLAR_KLATA);
 					output.accept(ModItems.DOLAR_SPODNIE);
 					output.accept(ModItems.DOLAR_BUTY);
+					output.accept(ModItems.PET_BALWANEK);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();
