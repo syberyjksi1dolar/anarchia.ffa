@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "mymod:dolar"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "mymod:dolar"
+      }
+    ]
+  }
+}

@@ -50,5 +50,13 @@
   "item.mymod.splesniala_kanapka": "Spleśniała Kanapka",
   "item.mymod.anarchiczny_kilof": "Anarchiczny Kilof",
   "item.mymod.rozgotowana_kukurydza": "Rozgotowana Kukurydza",
-  "item.mymod.luk_kupidyna": "Łuk Kupidyna"
+  "item.mymod.luk_kupidyna": "Łuk Kupidyna",
+  "item.mymod.silacz_helm": "Kostium Siłacza: Głowa",
+  "item.mymod.silacz_klata": "Kostium Siłacza: Klata",
+  "item.mymod.silacz_spodnie": "Kostium Siłacza: Spodnie",
+  "item.mymod.silacz_buty": "Kostium Siłacza: Buty",
+  "item.mymod.dolar_helm": "Kostium Dolara: Głowa",
+  "item.mymod.dolar_klata": "Kostium Dolara: Klata",
+  "item.mymod.dolar_spodnie": "Kostium Dolara: Spodnie",
+  "item.mymod.dolar_buty": "Kostium Dolara: Buty"
 }

@@ -49,6 +49,8 @@ public class MyMod implements ModInitializer {
 		WedkaGwardianaItem.initialize();
 		ZatrutyTrunekItem.initialize();
 		ArcusMagnusItem.initialize();
+		SilaczHandler.initialize();
+		DolarHandler.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -100,6 +102,14 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.ANARCHICZNY_KILOF);
 					output.accept(ModItems.ROZGOTOWANA_KUKURYDZA);
 					output.accept(ModItems.LUK_KUPIDYNA);
+					output.accept(ModItems.SILACZ_HELM);
+					output.accept(ModItems.SILACZ_KLATA);
+					output.accept(ModItems.SILACZ_SPODNIE);
+					output.accept(ModItems.SILACZ_BUTY);
+					output.accept(ModItems.DOLAR_HELM);
+					output.accept(ModItems.DOLAR_KLATA);
+					output.accept(ModItems.DOLAR_SPODNIE);
+					output.accept(ModItems.DOLAR_BUTY);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

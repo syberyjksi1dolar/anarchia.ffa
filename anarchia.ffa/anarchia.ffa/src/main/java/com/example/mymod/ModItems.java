@@ -176,6 +176,42 @@ public class ModItems {
 			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.HEAD).setAsset(KORONA_ASSET).build()));
 
+
+	// ===== Kostium Siłacza (komplet 4 części, bez wytrzymałości = niezniszczalny) =====
+	public static final ResourceKey<EquipmentAsset> SILACZ_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, "silacz"));
+
+	public static final Item SILACZ_HELM = register("silacz_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
+	public static final Item SILACZ_KLATA = register("silacz_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
+	public static final Item SILACZ_SPODNIE = register("silacz_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
+	public static final Item SILACZ_BUTY = register("silacz_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
+
+
+	// ===== Kostium Dolara (komplet 4 części, niezniszczalny) =====
+	public static final ResourceKey<EquipmentAsset> DOLAR_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, "dolar"));
+
+	public static final Item DOLAR_HELM = register("dolar_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
+	public static final Item DOLAR_KLATA = register("dolar_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
+	public static final Item DOLAR_SPODNIE = register("dolar_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
+	public static final Item DOLAR_BUTY = register("dolar_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
+
 	public static <T extends Item> T register(String name, Function<Item.Properties, T> itemFactory, Item.Properties settings) {
 		ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));
 		T item = itemFactory.apply(settings.setId(itemKey));
