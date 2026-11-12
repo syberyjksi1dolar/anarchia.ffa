@@ -44,6 +44,11 @@ public class MyMod implements ModInitializer {
 		JednorozecManager.initialize();
 		KosaKlatkaManager.initialize();
 		OffhandEventowkiHandler.initialize();
+		Eventowki46Handler.initialize();
+		BalonikZHeliemItem.initialize();
+		WedkaGwardianaItem.initialize();
+		ZatrutyTrunekItem.initialize();
+		ArcusMagnusItem.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -78,6 +83,23 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.ROZA_KUPIDYNA);
 					output.accept(ModItems.CIEPLE_MLEKO);
 					output.accept(ModItems.LIZAK);
+					output.accept(ModItems.PIEKIELNY_MIECZ);
+					output.accept(ModItems.WATA_CUKROWA);
+					output.accept(ModItems.KROLICZY_MIECZ);
+					output.accept(ModItems.TURBO_TRAP);
+					output.accept(ModItems.LOPATA_GRINCHA);
+					output.accept(ModItems.WEDKA_GWARDIANA);
+					output.accept(ModItems.ZATRUTY_OLOWEK);
+					output.accept(ModItems.ARCUS_MAGNUS);
+					output.accept(ModItems.MARCHEWKOWY_MIECZ);
+					output.accept(ModItems.MARCHEWKOWA_KUSZA);
+					output.accept(ModItems.BALONIK_Z_HELEM);
+					output.accept(ModItems.PIERNIK);
+					output.accept(ModItems.ZATRUTY_TRUNEK);
+					output.accept(ModItems.SPLESNIALA_KANAPKA);
+					output.accept(ModItems.ANARCHICZNY_KILOF);
+					output.accept(ModItems.ROZGOTOWANA_KUKURYDZA);
+					output.accept(ModItems.LUK_KUPIDYNA);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

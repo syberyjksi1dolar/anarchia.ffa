@@ -112,6 +112,61 @@ public class ModItems {
 
 	public static final Item LIZAK = register("lizak", Item::new, new Item.Properties().stacksTo(1));
 
+	// ===== Eventówki 30-46 =====
+	public static final Item PIEKIELNY_MIECZ = register("piekielny_miecz", Item::new,
+			new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0F, -2.4F)
+					.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
+
+	public static final Item WATA_CUKROWA = register("wata_cukrowa", WataCukrowaItem::new,
+			new Item.Properties().stacksTo(64));
+
+	public static final Item KROLICZY_MIECZ = register("kroliczy_miecz", Item::new,
+			new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0F, -2.4F)
+					.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
+
+	public static final Item TURBO_TRAP = register("turbo_trap", TurboTrapItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item LOPATA_GRINCHA = register("lopata_grincha", Item::new,
+			new Item.Properties().shovel(ToolMaterial.NETHERITE, 1.5F, -3.0F));
+
+	public static final Item WEDKA_GWARDIANA = register("wedka_gwardiana", WedkaGwardianaItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item ZATRUTY_OLOWEK = register("zatruty_olowek", Item::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item ARCUS_MAGNUS = register("arcus_magnus", ArcusMagnusItem::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
+
+	public static final Item MARCHEWKOWY_MIECZ = register("marchewkowy_miecz", Item::new,
+			new Item.Properties().sword(ToolMaterial.NETHERITE, 3.0F, -2.4F));
+
+	public static final Item MARCHEWKOWA_KUSZA = register("marchewkowa_kusza", net.minecraft.world.item.CrossbowItem::new,
+			new Item.Properties().durability(465));
+
+	public static final Item BALONIK_Z_HELEM = register("balonik_z_helem", BalonikZHeliemItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item PIERNIK = register("piernik", PiernikItem::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item ZATRUTY_TRUNEK = register("zatruty_trunek", ZatrutyTrunekItem::new,
+			new Item.Properties().stacksTo(16));
+
+	public static final Item SPLESNIALA_KANAPKA = register("splesniala_kanapka", Item::new,
+			new Item.Properties().stacksTo(1));
+
+	public static final Item ANARCHICZNY_KILOF = register("anarchiczny_kilof", Item::new,
+			new Item.Properties().pickaxe(ToolMaterial.NETHERITE, 1.0F, -2.8F)
+					.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true));
+
+	public static final Item ROZGOTOWANA_KUKURYDZA = register("rozgotowana_kukurydza", ZatrutyTrunekItem::new,
+			new Item.Properties().stacksTo(16));
+
+	public static final Item LUK_KUPIDYNA = register("luk_kupidyna", net.minecraft.world.item.BowItem::new,
+			new Item.Properties().durability(384));
+
 	/** Model korony noszonej na głowie: assets/mymod/equipment/anarchia_korona.json */
 	public static final ResourceKey<EquipmentAsset> KORONA_ASSET = ResourceKey.create(
 			EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, "anarchia_korona"));
