@@ -11,9 +11,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-/** Róg Koozy: byty w promieniu 5 bloków dostają 6 HP obrażeń i lecą 10 bloków od ciebie. Cooldown 60 s. */
+/** Róg Koozy: byty w promieniu 10 bloków dostają 6 HP obrażeń i lecą 10 bloków od ciebie. Cooldown 60 s. */
 public class RogKoozyItem extends Item {
-	public static final double RADIUS = 5.0;
+	public static final double RADIUS = 10.0;
 	public static final float DAMAGE = 6.0F;
 	public static final int COOLDOWN_TICKS = 60 * 20;
 

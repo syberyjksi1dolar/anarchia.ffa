@@ -30,9 +30,9 @@ public class RozdzkaMagikaItem extends Item {
 	public static final float HP_PER_SEGMENT = 4.0F;
 	public static final int SEGMENTS = 6;
 	public static final int BEAM_TICKS = 5 * 20;
-	/** Obrażenia wiązki i odstęp (jak cooldown miecza). */
+	/** Obrażenia wiązki (0,5 serca) co 5 ticków. */
 	public static final float BEAM_DAMAGE = 1.0F;
-	public static final int BEAM_INTERVAL = 12;
+	public static final int BEAM_INTERVAL = 5;
 	public static final double RANGE = 20.0;
 
 	private static final Map<UUID, Float> ACC = new HashMap<>();
