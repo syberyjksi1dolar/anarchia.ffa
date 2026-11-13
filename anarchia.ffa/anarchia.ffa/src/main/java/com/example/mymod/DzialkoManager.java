@@ -16,9 +16,11 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,6 +31,7 @@ import net.minecraft.world.phys.Vec3;
 public final class DzialkoManager {
 	public static final double RANGE = 15.0;
 	public static final int SHOT_INTERVAL = 20;
+	public static final double DECOY_HEALTH = 30.0;
 	private static final String FILE = "mymod_dzialka.txt";
 
 	private static final class Cannon {
@@ -36,6 +39,7 @@ public final class DzialkoManager {
 		final BlockPos pos;
 		final UUID owner;
 		long nextShot;
+		UUID decoy;
 
 		Cannon(String dimension, BlockPos pos, UUID owner) {
 			this.dimension = dimension;
@@ -62,7 +66,7 @@ public final class DzialkoManager {
 	private static void save(MinecraftServer server) {
 		List<String> lines = new ArrayList<>();
 		for (Cannon c : CANNONS) {
-			lines.add(c.pos.getX() + ";" + c.pos.getY() + ";" + c.pos.getZ() + ";" + c.owner + ";" + c.dimension);
+			lines.add(c.pos.getX() + ";" + c.pos.getY() + ";" + c.pos.getZ() + ";" + c.owner + ";" + c.dimension + ";" + (c.decoy == null ? "-" : c.decoy));
 		}
 		try {
 			Files.write(file(server), lines, StandardCharsets.UTF_8);
@@ -80,10 +84,14 @@ public final class DzialkoManager {
 		}
 		try {
 			for (String line : Files.readAllLines(f, StandardCharsets.UTF_8)) {
-				String[] p = line.split(";", 5);
-				if (p.length == 5) {
-					CANNONS.add(new Cannon(p[4], new BlockPos(Integer.parseInt(p[0]), Integer.parseInt(p[1]),
-							Integer.parseInt(p[2])), UUID.fromString(p[3])));
+				String[] p = line.split(";", 6);
+				if (p.length >= 5) {
+					Cannon c = new Cannon(p[4], new BlockPos(Integer.parseInt(p[0]), Integer.parseInt(p[1]),
+							Integer.parseInt(p[2])), UUID.fromString(p[3]));
+					if (p.length == 6 && !p[5].equals("-")) {
+						c.decoy = UUID.fromString(p[5]);
+					}
+					CANNONS.add(c);
 				}
 			}
 		} catch (IOException | RuntimeException e) {
@@ -117,10 +125,40 @@ public final class DzialkoManager {
 				if (level == null || !level.hasChunkAt(c.pos)) {
 					continue; // niezaładowany fragment świata: działko śpi
 				}
+				Entity existing = c.decoy == null ? null : level.getEntity(c.decoy);
 				if (!level.getBlockState(c.pos).is(ModBlocks.DZIALKO)) {
+					if (existing != null) {
+						existing.discard(); // działko wykopane: znika też wabik
+					}
 					it.remove(); // wykopane lub zniszczone
 					dirty = true;
 					continue;
+				}
+				// Wabik: niewidzialny strażnik z 30 HP, który przyjmuje ataki mobów za działko.
+				if (existing != null && c.decoy != null && !existing.isAlive()) {
+					level.destroyBlock(c.pos, true); // działko zniszczone przez moby
+					existing.discard();
+					it.remove();
+					dirty = true;
+					continue;
+				}
+				if (existing == null) {
+					var golem = EntityType.IRON_GOLEM.create(level, EntitySpawnReason.TRIGGERED);
+					if (golem != null) {
+						var hp = golem.getAttribute(Attributes.MAX_HEALTH);
+						if (hp != null) {
+							hp.setBaseValue(DECOY_HEALTH);
+						}
+						golem.setHealth((float) DECOY_HEALTH);
+						golem.setNoAi(true);
+						golem.setInvisible(true);
+						golem.setSilent(true);
+						golem.setPos(c.pos.getX() + 0.5, c.pos.getY() + 1.0, c.pos.getZ() + 0.5);
+						level.addFreshEntity(golem);
+						c.decoy = golem.getUUID();
+						existing = golem;
+						dirty = true;
+					}
 				}
 				long now = level.getGameTime();
 				if (now < c.nextShot) {
@@ -146,6 +184,9 @@ public final class DzialkoManager {
 					continue;
 				}
 				Vec3 dir = best.getBoundingBox().getCenter().subtract(muzzle);
+				if (best instanceof net.minecraft.world.entity.Mob mob && existing instanceof LivingEntity decoyEntity) {
+					mob.setTarget(decoyEntity); // zaatakowany mob atakuje działko
+				}
 				arrow.setPos(muzzle.x, muzzle.y, muzzle.z);
 				arrow.setBaseDamage(0.6); // przy prędkości 1,6 daje dokładnie 1 HP
 				arrow.shoot(dir.x, dir.y + dir.horizontalDistance() * 0.04, dir.z, 1.6F, 0.5F);

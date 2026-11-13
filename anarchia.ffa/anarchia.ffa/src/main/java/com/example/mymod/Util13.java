@@ -23,6 +23,10 @@ public final class Util13 {
 
 	/** Czy ten byt może być celem (nie stojak peta, żywy, nie spectator). */
 	public static boolean targetable(Entity e) {
+		if (e.getType() == net.minecraft.world.entity.EntityType.IRON_GOLEM && e instanceof net.minecraft.world.entity.Mob m
+				&& m.isNoAi() && m.isInvisible()) {
+			return false; // niewidzialny wabik działka
+		}
 		return e instanceof LivingEntity le && le.isAlive() && !le.isSpectator() && !(e instanceof ArmorStand);
 	}
 

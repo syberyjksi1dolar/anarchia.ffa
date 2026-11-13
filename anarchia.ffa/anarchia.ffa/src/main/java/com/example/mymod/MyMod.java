@@ -20,6 +20,9 @@ public class MyMod implements ModInitializer {
 	public static final ResourceKey<CreativeModeTab> EVENT_TAB_KEY = ResourceKey.create(
 			Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "eventowki"));
 
+	public static final ResourceKey<CreativeModeTab> PETY_TAB_KEY = ResourceKey.create(
+			Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "pety_kostiumy"));
+
 	@Override
 	public void onInitialize() {
 		ModBlocks.initialize();
@@ -114,9 +117,6 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.ANARCHICZNY_KILOF);
 					output.accept(ModItems.ROZGOTOWANA_KUKURYDZA);
 					output.accept(ModItems.LUK_KUPIDYNA);
-					output.accept(ModItems.SILACZ_KLATA);
-					output.accept(ModItems.DOLAR_KLATA);
-					output.accept(ModItems.PET_BALWANEK);
 					output.accept(ModItems.SLIMOWY_WIOSNA);
 					output.accept(ModItems.KULKA_BALWANA);
 					output.accept(ModItems.WEDKA_18);
@@ -134,6 +134,18 @@ public class MyMod implements ModInitializer {
 				})
 				.build();
 		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, EVENT_TAB_KEY, eventTab);
+
+		CreativeModeTab petyTab = FabricCreativeModeTab.builder()
+				.icon(() -> new ItemStack(ModItems.DOLAR_KLATA))
+				.title(Component.translatable("creativeTab.mymod.pety_kostiumy"))
+				.displayItems((params, output) -> {
+					output.accept(ModItems.SILACZ_KLATA);
+					output.accept(ModItems.DOLAR_KLATA);
+					output.accept(ModItems.PET_BALWANEK);
+					// Kolejne kostiumy i pety dopisujemy tutaj.
+				})
+				.build();
+		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, PETY_TAB_KEY, petyTab);
 
 		LOGGER.info("My Mod załadowany!");
 	}

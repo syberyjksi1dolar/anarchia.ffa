@@ -218,32 +218,32 @@ public class ModItems {
 
 	// ===== 13 nowych eventówek =====
 	public static final Item SLIMOWY_WIOSNA = register("slimowy_wiosna", SlimowyWiosnaItem::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "slime_ball")));
+			new Item.Properties().stacksTo(1));
 	public static final Item KULKA_BALWANA = register("kulka_balwana", KulkaBalwanaItem::new,
-			new Item.Properties().stacksTo(32).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "snowball")));
-	public static final Item WEDKA_18 = register("wedka_18", FishingRodItem::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "fishing_rod")));
+			new Item.Properties().stacksTo(32));
+	public static final Item WEDKA_18 = register("wedka_18", Wedka18Item::new,
+			new Item.Properties().stacksTo(1));
 	public static final Item FAJERWERKA_WYRZUTNI = register("fajerwerka_wyrzutni", FajerwerkaWyrzutniItem::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "firework_rocket")));
+			new Item.Properties().stacksTo(1));
 	public static final Item ROZDZKA_MAGIKA = register("rozdzka_magika", RozdzkaMagikaItem::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "stick")));
+			new Item.Properties().stacksTo(1));
 	public static final Item PERELKA_ZAMIANKA = register("perelka_zamianka", PerelkaZamiankaItem::new,
-			new Item.Properties().stacksTo(16).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "ender_pearl")));
+			new Item.Properties().stacksTo(16));
 	public static final Item WEDECZKA_PERELECZKA = register("wedeczka_perelka", FishingRodItem::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "fishing_rod")));
+			new Item.Properties().stacksTo(1));
 	public static final Item WILK = register("wilk", WilkItem::new,
 			new Item.Properties().stacksTo(16));
 	public static final Item DZIALKO = register("dzialko",
 			props -> new BlockItem(ModBlocks.DZIALKO, props),
 			new Item.Properties().stacksTo(64));
 	public static final Item SHULEK_BOXEK = register("shulek_boxek", ShulekBoxekItem::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "shulker_box")));
+			new Item.Properties().stacksTo(1));
 	public static final Item DYNAMIT = register("dynamit", DynamitItem::new,
-			new Item.Properties().stacksTo(64).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "tnt")));
+			new Item.Properties().stacksTo(64));
 	public static final Item BOSKI_TOPOR = register("boski_topor", BoskiToporItem::new,
 			new Item.Properties().stacksTo(1).axe(ToolMaterial.NETHERITE, 5.0F, -3.0F));
 	public static final Item ROG_KOOZY = register("rog_koozy", RogKoozyItem::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.ITEM_MODEL, Identifier.fromNamespaceAndPath("minecraft", "goat_horn")));
+			new Item.Properties().stacksTo(1));
 
 	public static <T extends Item> T register(String name, Function<Item.Properties, T> itemFactory, Item.Properties settings) {
 		ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));

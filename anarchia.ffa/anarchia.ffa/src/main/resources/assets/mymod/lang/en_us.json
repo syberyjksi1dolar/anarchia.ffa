@@ -73,5 +73,6 @@
   "item.mymod.dynamit": "Dynamite",
   "item.mymod.boski_topor": "Divine Axe",
   "item.mymod.rog_koozy": "Goat Horn",
-  "block.mymod.dzialko": "Cannon"
+  "block.mymod.dzialko": "Cannon",
+  "creativeTab.mymod.pety_kostiumy": "Pets and costumes"
 }

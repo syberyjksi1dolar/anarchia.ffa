@@ -41,7 +41,7 @@ public final class SilaczHandler {
 
 	public static boolean wearsFullSet(ServerPlayer p) {
 		// Efekty działają, gdy kostium (klata) jest założony, nawet jeśli reszta jest zasłonięta zbroją.
-		return p.getItemBySlot(EquipmentSlot.CHEST).is(ModItems.SILACZ_KLATA);
+		return KostiumDresser.isActive(p, ModItems.SILACZ_KLATA);
 	}
 
 	private static void restore(ServerPlayer p, ItemStack[] saved) {

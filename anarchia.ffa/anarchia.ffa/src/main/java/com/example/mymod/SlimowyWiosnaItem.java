@@ -36,6 +36,7 @@ public class SlimowyWiosnaItem extends Item {
 
 	private static final Map<UUID, Integer> CHARGE = new HashMap<>();
 	private static final Map<UUID, Dash> DASHES = new HashMap<>();
+	private static final Map<UUID, Boolean> WAS_SNEAKING = new HashMap<>();
 
 	public SlimowyWiosnaItem(Properties properties) {
 		super(properties);
@@ -61,6 +62,12 @@ public class SlimowyWiosnaItem extends Item {
 						}
 					}
 				}
+				boolean sneaking = p.isShiftKeyDown();
+				boolean wasSneaking = WAS_SNEAKING.getOrDefault(id, false);
+				WAS_SNEAKING.put(id, sneaking);
+				if (wasSneaking && !sneaking && holds(p) && CHARGE.getOrDefault(id, 0) > 0) {
+					fire(p); // puszczenie kucania uruchamia moc (także przed pełnym naładowaniem)
+				}
 				if (holds(p) && p.isShiftKeyDown() && !DASHES.containsKey(id)) {
 					int c = Math.min(FULL_TICKS, CHARGE.getOrDefault(id, 0) + 1);
 					CHARGE.put(id, c);
@@ -74,22 +81,20 @@ public class SlimowyWiosnaItem extends Item {
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
 			CHARGE.clear();
 			DASHES.clear();
+			WAS_SNEAKING.clear();
 		});
 	}
 
-	@Override
-	public InteractionResult use(Level level, Player player, InteractionHand hand) {
-		if (level.isClientSide() || !(player instanceof ServerPlayer)) {
-			return InteractionResult.SUCCESS;
-		}
+	/** Wyrzuca gracza zgodnie z aktualnym naładowaniem i zeruje ładowanie. */
+	private static void fire(ServerPlayer player) {
 		UUID id = player.getUUID();
 		int ticks = CHARGE.getOrDefault(id, 0);
 		if (ticks <= 0) {
-			return InteractionResult.PASS; // bez ładowania (kucania) nic się nie dzieje
+			return;
 		}
 		double frac = ticks / (double) FULL_TICKS;
 		// 50% = 4 bloki, 100% = 6 bloków; poniżej 50% proporcjonalnie od 2 bloków.
-		double blocks = MIN_BLOCKS + (FULL_BLOCKS - MIN_BLOCKS) * frac;
+		double blocks = MIN_BLOCKS + (4.0 - MIN_BLOCKS) * (frac / 0.5);
 		if (frac >= 0.5) {
 			blocks = 4.0 + (FULL_BLOCKS - 4.0) * ((frac - 0.5) / 0.5);
 		}
@@ -103,6 +108,14 @@ public class SlimowyWiosnaItem extends Item {
 		if (frac >= 0.999) {
 			DASHES.put(id, new Dash());
 		}
-		return InteractionResult.SUCCESS;
+	}
+
+	@Override
+	public InteractionResult use(Level level, Player player, InteractionHand hand) {
+		if (!level.isClientSide() && player instanceof ServerPlayer sp && CHARGE.getOrDefault(player.getUUID(), 0) > 0) {
+			fire(sp); // prawy klik w czasie kucania też uruchamia moc
+			return InteractionResult.SUCCESS;
+		}
+		return InteractionResult.PASS;
 	}
 }

@@ -35,6 +35,31 @@ public final class WedkiHandler {
 		return p.getMainHandItem().is(item) || p.getOffhandItem().is(item);
 	}
 
+	/** Wywoływane przy kliknięciu prawym (zwinięcie linki): przyciąga gracza do bytu lub bloku, w który wbił się haczyk. */
+	public static void pull(ServerPlayer p) {
+		var hook = p.fishing;
+		if (hook == null || hook.isRemoved()) {
+			return;
+		}
+		var hooked = hook.getHookedIn();
+		boolean stuck = hooked != null || hook.onGround() || hook.horizontalCollision || hook.verticalCollision
+				|| hook.getDeltaMovement().lengthSqr() < 0.01;
+		if (!stuck || (hooked == null && hook.isInWater())) {
+			return;
+		}
+		Vec3 target = hooked != null ? hooked.getBoundingBox().getCenter() : hook.position();
+		Vec3 d = target.subtract(p.position());
+		double dist = d.length();
+		if (dist < 1.5) {
+			return;
+		}
+		Vec3 dir = d.normalize();
+		double speed = Math.min(1.8, 0.5 + dist * 0.1);
+		p.setDeltaMovement(dir.x * speed, dir.y * speed + 0.25, dir.z * speed);
+		p.hurtMarked = true;
+		p.resetFallDistance();
+	}
+
 	public static void initialize() {
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			int now = server.getTickCount();
@@ -52,18 +77,6 @@ public final class WedkiHandler {
 							victim.hurtServer(level, level.damageSources().playerAttack(p), PLAYER_DAMAGE);
 							ATTACK_READY.put(p.getUUID(), now + ATTACK_COOLDOWN_TICKS);
 						}
-					} else if (hooked == null && !hook.isInWater()
-							&& (hook.onGround() || hook.horizontalCollision || hook.verticalCollision)) {
-						Vec3 d = hook.position().subtract(p.position());
-						double dist = d.length();
-						if (dist > 2.0) {
-							Vec3 dir = d.normalize();
-							double speed = Math.min(1.7, 0.5 + dist * 0.09);
-							p.setDeltaMovement(dir.x * speed, dir.y * speed + 0.25, dir.z * speed);
-							p.hurtMarked = true;
-							p.resetFallDistance();
-						}
-						hook.discard();
 					}
 				}
 
