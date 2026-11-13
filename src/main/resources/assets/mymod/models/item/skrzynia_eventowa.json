@@ -1,0 +1,4 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": { "layer0": "mymod:item/skrzynia_rzadka" }
+}
