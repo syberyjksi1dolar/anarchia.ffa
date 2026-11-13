@@ -59,7 +59,7 @@ public class SakiewkaItem extends Item {
 	}
 
 	/** Odczyt zawartości przez refleksję, bo nazwa metody różni się między wersjami gry. */
-	private static List<ItemStack> readContents(ItemContainerContents contents) {
+	static List<ItemStack> readContents(ItemContainerContents contents) {
 		List<ItemStack> out = new ArrayList<>();
 		try {
 			NonNullList<ItemStack> list = NonNullList.withSize(SLOTS, ItemStack.EMPTY);

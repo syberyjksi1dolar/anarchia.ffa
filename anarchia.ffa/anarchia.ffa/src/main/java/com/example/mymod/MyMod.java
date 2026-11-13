@@ -53,6 +53,16 @@ public class MyMod implements ModInitializer {
 		DolarHandler.initialize();
 		KostiumDresser.initialize();
 		PetBalwanekItem.initialize();
+		SlimowyWiosnaItem.initialize();
+		ThrowTracker.initialize();
+		WedkiHandler.initialize();
+		FajerwerkaWyrzutniItem.initialize();
+		RozdzkaMagikaItem.initialize();
+		WilkItem.initialize();
+		DzialkoManager.initialize();
+		ShulekBoxekItem.initialize();
+		DynamitItem.initialize();
+		BoskiToporItem.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -107,6 +117,19 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.SILACZ_KLATA);
 					output.accept(ModItems.DOLAR_KLATA);
 					output.accept(ModItems.PET_BALWANEK);
+					output.accept(ModItems.SLIMOWY_WIOSNA);
+					output.accept(ModItems.KULKA_BALWANA);
+					output.accept(ModItems.WEDKA_18);
+					output.accept(ModItems.FAJERWERKA_WYRZUTNI);
+					output.accept(ModItems.ROZDZKA_MAGIKA);
+					output.accept(ModItems.PERELKA_ZAMIANKA);
+					output.accept(ModItems.WEDECZKA_PERELECZKA);
+					output.accept(ModItems.WILK);
+					output.accept(ModItems.DZIALKO);
+					output.accept(ModItems.SHULEK_BOXEK);
+					output.accept(ModItems.DYNAMIT);
+					output.accept(ModItems.BOSKI_TOPOR);
+					output.accept(ModItems.ROG_KOOZY);
 					// Kolejne eventówki dopisujemy tutaj.
 				})
 				.build();

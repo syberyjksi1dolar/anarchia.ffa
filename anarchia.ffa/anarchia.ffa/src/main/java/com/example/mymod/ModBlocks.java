@@ -53,6 +53,14 @@ public class ModBlocks {
 					.lightLevel(state -> 15)
 					.strength(50.0F, 1200.0F));
 
+	/** Działko: twarde jak obsydian, wykopuje się kilofem, sam strzela (DzialkoManager). */
+	public static final Block DZIALKO = register("dzialko", DzialkoBlock::new,
+			BlockBehaviour.Properties.of()
+					.mapColor(MapColor.METAL)
+					.sound(SoundType.METAL)
+					.requiresCorrectToolForDrops()
+					.strength(50.0F, 1200.0F));
+
 	public static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory,
 			BlockBehaviour.Properties properties) {
 		ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));
