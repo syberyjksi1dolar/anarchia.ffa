@@ -55,10 +55,8 @@ public final class DolarHandler {
 	}
 
 	public static boolean wearsFullSet(Player p) {
-		return p.getItemBySlot(EquipmentSlot.HEAD).is(ModItems.DOLAR_HELM)
-				&& p.getItemBySlot(EquipmentSlot.CHEST).is(ModItems.DOLAR_KLATA)
-				&& p.getItemBySlot(EquipmentSlot.LEGS).is(ModItems.DOLAR_SPODNIE)
-				&& p.getItemBySlot(EquipmentSlot.FEET).is(ModItems.DOLAR_BUTY);
+		// Efekty działają, gdy kostium (klata) jest założony, nawet jeśli reszta jest zasłonięta zbroją.
+		return p.getItemBySlot(EquipmentSlot.CHEST).is(ModItems.DOLAR_KLATA);
 	}
 
 	private static void restore(ServerPlayer p, ItemStack[] saved) {

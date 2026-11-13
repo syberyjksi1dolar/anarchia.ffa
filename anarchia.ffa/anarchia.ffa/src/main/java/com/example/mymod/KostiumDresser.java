@@ -10,8 +10,8 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Kostiumy to jeden przedmiot (zakładany na klatę). Po założeniu ten handler sam ubiera resztę
- * kostiumu (głowa, spodnie, buty), a po zdjęciu je zabiera. Zwykłe elementy zbroi zajmujące
- * te miejsca wracają do ekwipunku (lub wypadają, gdy nie ma miejsca).
+ * kostiumu (głowa, spodnie, buty), a po zdjęciu je zabiera. Puste miejsca są uzupełniane;
+ * zwykłą zbroję można założyć na kostium, wtedy widać zbroję, a efekty kostiumu działają dalej.
  */
 public final class KostiumDresser {
 	private record Costume(Item chest, Item head, Item legs, Item feet) {
@@ -33,11 +33,7 @@ public final class KostiumDresser {
 			return;
 		}
 		if (!cur.isEmpty()) {
-			ItemStack back = cur.copy();
-			p.setItemSlot(slot, ItemStack.EMPTY);
-			if (!p.getInventory().add(back)) {
-				p.drop(back, false);
-			}
+			return; // zwykła zbroja założona na kostium: zostaje i jest widoczna
 		}
 		p.setItemSlot(slot, new ItemStack(piece));
 	}
