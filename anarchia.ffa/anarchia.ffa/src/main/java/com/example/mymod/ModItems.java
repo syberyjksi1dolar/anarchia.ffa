@@ -215,6 +215,12 @@ public class ModItems {
 	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
 			new Item.Properties().stacksTo(1));
 
+	// Przedmioty systemu skrzyń — właściwa obsługa GUI i losowania jest osobnym etapem.
+	public static final Item SKRZYNIA_EVENTOWA = register("skrzynia_eventowa", Item::new,
+			new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_SKRZYNI = register("klucz_skrzyni", Item::new,
+			new Item.Properties().stacksTo(64));
+
 
 	// ===== 13 nowych eventówek =====
 	public static final Item SLIMOWY_WIOSNA = register("slimowy_wiosna", SlimowyWiosnaItem::new,

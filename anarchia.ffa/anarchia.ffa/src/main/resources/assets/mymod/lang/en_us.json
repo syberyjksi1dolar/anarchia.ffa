@@ -74,5 +74,8 @@
   "item.mymod.boski_topor": "Divine Axe",
   "item.mymod.rog_koozy": "Goat Horn",
   "block.mymod.dzialko": "Cannon",
-  "creativeTab.mymod.pety_kostiumy": "Pets and costumes"
+  "creativeTab.mymod.pety_kostiumy": "Pets and costumes",
+  "item.mymod.skrzynia_eventowa": "Event Crate",
+  "item.mymod.klucz_skrzyni": "Crate Key",
+  "creativeTab.mymod.skrzynie": "Crates"
 }

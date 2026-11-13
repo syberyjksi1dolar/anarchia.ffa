@@ -23,6 +23,9 @@ public class MyMod implements ModInitializer {
 	public static final ResourceKey<CreativeModeTab> PETY_TAB_KEY = ResourceKey.create(
 			Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "pety_kostiumy"));
 
+	public static final ResourceKey<CreativeModeTab> SKRZYNIE_TAB_KEY = ResourceKey.create(
+			Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "skrzynie"));
+
 	@Override
 	public void onInitialize() {
 		ModBlocks.initialize();
@@ -146,6 +149,16 @@ public class MyMod implements ModInitializer {
 				})
 				.build();
 		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, PETY_TAB_KEY, petyTab);
+
+		CreativeModeTab skrzynieTab = FabricCreativeModeTab.builder()
+				.icon(() -> new ItemStack(ModItems.SKRZYNIA_EVENTOWA))
+				.title(Component.translatable("creativeTab.mymod.skrzynie"))
+				.displayItems((params, output) -> {
+					output.accept(ModItems.SKRZYNIA_EVENTOWA);
+					output.accept(ModItems.KLUCZ_SKRZYNI);
+				})
+				.build();
+		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, SKRZYNIE_TAB_KEY, skrzynieTab);
 
 		LOGGER.info("My Mod załadowany!");
 	}

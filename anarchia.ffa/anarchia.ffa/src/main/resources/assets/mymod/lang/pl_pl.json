@@ -74,5 +74,8 @@
   "item.mymod.boski_topor": "Boski Topór",
   "item.mymod.rog_koozy": "Róg Koozy",
   "block.mymod.dzialko": "Działko",
-  "creativeTab.mymod.pety_kostiumy": "Pety i kostiumy"
+  "creativeTab.mymod.pety_kostiumy": "Pety i kostiumy",
+  "item.mymod.skrzynia_eventowa": "Skrzynia eventowa",
+  "item.mymod.klucz_skrzyni": "Klucz do skrzyni",
+  "creativeTab.mymod.skrzynie": "Skrzynie"
 }
