@@ -185,14 +185,14 @@ public final class SkrzynieManager {
 					if (t == EVENT_TICKS[i]) {
 						o.menu.box.setItem(CENTER, o.crate.entries().get(o.shown[i]).icon().apply(ra));
 						if (sp != null) {
-							sp.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6F, 0.8F + i * 0.05F);
+							sp.level().playSound(null, sp.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6F, 0.8F + i * 0.05F);
 						}
 					}
 				}
 				if (t >= ANIM_TICKS && !o.given) {
 					give(server, o, sp);
 					if (sp != null) {
-						sp.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.0F);
+						sp.level().playSound(null, sp.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 1.0F, 1.0F);
 						sp.sendSystemMessage(Component.literal("Wylosowano: ")
 								.append(o.crate.entries().get(o.reward).icon().apply(ra).getHoverName()), true);
 					}

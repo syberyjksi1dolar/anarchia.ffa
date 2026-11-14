@@ -2,20 +2,22 @@ package com.example.mymod;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 /**
  * GUI skrzyni (3 rzędy): nagrody w slotach od 0, a w ostatnim rzędzie przyciski:
  * 24 = pomarańczowy barwnik (otwórz od razu), 25 = zielony barwnik (animacja 5 s), 26 = bariera (zamknij).
- * Przedmiotów z GUI nie da się wyjąć.
+ * Przedmiotów z GUI nie da się wyjąć ani włożyć. Menu nie używa ClickType (zmieniony w 26.1) -
+ * kliknięcie w slot jest wykrywane w Slot.mayPickup.
  */
-public class SkrzyniaMenu extends ChestMenu {
+public class SkrzyniaMenu extends AbstractContainerMenu {
 	public static final int BTN_NOW = 24;
 	public static final int BTN_ANIM = 25;
 	public static final int BTN_CLOSE = 26;
@@ -25,35 +27,61 @@ public class SkrzyniaMenu extends ChestMenu {
 	final BlockPos pos;
 	boolean busy = false;
 
-	public SkrzyniaMenu(int id, Inventory inventory, SimpleContainer box, Crates.Crate crate, BlockPos pos) {
-		super(MenuType.GENERIC_9x3, id, inventory, box, 3);
-		this.box = box;
-		this.crate = crate;
-		this.pos = pos;
-	}
+	private class BoxSlot extends Slot {
+		private final int index;
 
-	@Override
-	public void clicked(int slotId, int button, ClickType type, Player player) {
-		if (slotId >= 0 && slotId < 27) {
+		BoxSlot(Container container, int index, int x, int y) {
+			super(container, index, x, y);
+			this.index = index;
+		}
+
+		@Override
+		public boolean mayPlace(ItemStack stack) {
+			return false;
+		}
+
+		@Override
+		public boolean mayPickup(Player player) {
 			if (player instanceof ServerPlayer sp && !busy) {
-				if (slotId == BTN_NOW) {
-					SkrzynieManager.request(sp, this, false);
-				} else if (slotId == BTN_ANIM) {
-					SkrzynieManager.request(sp, this, true);
-				} else if (slotId == BTN_CLOSE) {
+				if (index == BTN_NOW) {
+					SkrzynieManager.request(sp, SkrzyniaMenu.this, false);
+				} else if (index == BTN_ANIM) {
+					SkrzynieManager.request(sp, SkrzyniaMenu.this, true);
+				} else if (index == BTN_CLOSE) {
 					sp.closeContainer();
 				}
 			}
-			return;
+			return false;
 		}
-		if (type == ClickType.QUICK_MOVE || type == ClickType.PICKUP_ALL || type == ClickType.QUICK_CRAFT) {
-			return;
+	}
+
+	public SkrzyniaMenu(int id, Inventory inventory, SimpleContainer box, Crates.Crate crate, BlockPos pos) {
+		super(MenuType.GENERIC_9x3, id);
+		this.box = box;
+		this.crate = crate;
+		this.pos = pos;
+		for (int row = 0; row < 3; row++) {
+			for (int col = 0; col < 9; col++) {
+				this.addSlot(new BoxSlot(box, col + row * 9, 8 + col * 18, 18 + row * 18));
+			}
 		}
-		super.clicked(slotId, button, type, player);
+		for (int row = 0; row < 3; row++) {
+			for (int col = 0; col < 9; col++) {
+				this.addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
+			}
+		}
+		for (int col = 0; col < 9; col++) {
+			this.addSlot(new Slot(inventory, col, 8 + col * 18, 142));
+		}
 	}
 
 	@Override
 	public ItemStack quickMoveStack(Player player, int index) {
 		return ItemStack.EMPTY;
+	}
+
+	@Override
+	public boolean stillValid(Player player) {
+		return true;
 	}
 }
