@@ -126,5 +126,9 @@ public final class Crates {
 		add("kostiumy", "Skrzynia Kostiumów", ModItems.KLUCZ_KOSTIUMY, costumes);
 		add("dolarowa", "Dolarowa Skrzynia", ModItems.KLUCZ_DOLAROWA, new ArrayList<>());
 		add("eventowa", "Eventowa Skrzynia", ModItems.KLUCZ_EVENTOWA, new ArrayList<>());
+		add("swiateczna", "Świąteczna Skrzynia", ModItems.KLUCZ_SWIATECZNA, new ArrayList<>());
+		add("walentynkowa", "Walentynkowa Skrzynia", ModItems.KLUCZ_WALENTYNKOWA, new ArrayList<>());
+		add("halloweenowa", "Halloweenowa Skrzynia", ModItems.KLUCZ_HALLOWEENOWA, new ArrayList<>());
+		add("szkolna", "Szkolna Skrzynia", ModItems.KLUCZ_SZKOLNA, new ArrayList<>());
 	}
 }

@@ -69,6 +69,7 @@ public class MyMod implements ModInitializer {
 		ShulekBoxekItem.initialize();
 		DynamitItem.initialize();
 		BoskiToporItem.initialize();
+		SkrzynieManager.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -151,11 +152,32 @@ public class MyMod implements ModInitializer {
 		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, PETY_TAB_KEY, petyTab);
 
 		CreativeModeTab skrzynieTab = FabricCreativeModeTab.builder()
-				.icon(() -> new ItemStack(ModItems.SKRZYNIA_EVENTOWA))
+				.icon(() -> new ItemStack(ModItems.SKRZYNIA_RZADKA))
 				.title(Component.translatable("creativeTab.mymod.skrzynie"))
 				.displayItems((params, output) -> {
+					output.accept(ModItems.SKRZYNIA_RZADKA);
+					output.accept(ModItems.KLUCZ_RZADKA);
+					output.accept(ModItems.SKRZYNIA_EPICKA);
+					output.accept(ModItems.KLUCZ_EPICKA);
+					output.accept(ModItems.SKRZYNIA_ANARCHICZNA);
+					output.accept(ModItems.KLUCZ_ANARCHICZNA);
+					output.accept(ModItems.SKRZYNIA_PETY);
+					output.accept(ModItems.KLUCZ_PETY);
+					output.accept(ModItems.SKRZYNIA_KOSTIUMY);
+					output.accept(ModItems.KLUCZ_KOSTIUMY);
+					output.accept(ModItems.SKRZYNIA_DOLAROWA);
+					output.accept(ModItems.KLUCZ_DOLAROWA);
 					output.accept(ModItems.SKRZYNIA_EVENTOWA);
-					output.accept(ModItems.KLUCZ_SKRZYNI);
+					output.accept(ModItems.KLUCZ_EVENTOWA);
+					output.accept(ModItems.SKRZYNIA_SWIATECZNA);
+					output.accept(ModItems.KLUCZ_SWIATECZNA);
+					output.accept(ModItems.SKRZYNIA_WALENTYNKOWA);
+					output.accept(ModItems.KLUCZ_WALENTYNKOWA);
+					output.accept(ModItems.SKRZYNIA_HALLOWEENOWA);
+					output.accept(ModItems.KLUCZ_HALLOWEENOWA);
+					output.accept(ModItems.SKRZYNIA_SZKOLNA);
+					output.accept(ModItems.KLUCZ_SZKOLNA);
+					// Kolejne skrzynie i klucze dopisujemy tutaj.
 				})
 				.build();
 		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, SKRZYNIE_TAB_KEY, skrzynieTab);

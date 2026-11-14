@@ -215,12 +215,6 @@ public class ModItems {
 	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
 			new Item.Properties().stacksTo(1));
 
-	// Przedmioty systemu skrzyń — właściwa obsługa GUI i losowania jest osobnym etapem.
-	public static final Item SKRZYNIA_EVENTOWA = register("skrzynia_eventowa", Item::new,
-			new Item.Properties().stacksTo(64));
-	public static final Item KLUCZ_SKRZYNI = register("klucz_skrzyni", Item::new,
-			new Item.Properties().stacksTo(64));
-
 
 	// ===== 13 nowych eventówek =====
 	public static final Item SLIMOWY_WIOSNA = register("slimowy_wiosna", SlimowyWiosnaItem::new,
@@ -250,6 +244,41 @@ public class ModItems {
 			new Item.Properties().stacksTo(1).axe(ToolMaterial.NETHERITE, 5.0F, -3.0F));
 	public static final Item ROG_KOOZY = register("rog_koozy", RogKoozyItem::new,
 			new Item.Properties().stacksTo(1));
+
+	public static final Item SKRZYNIA_RZADKA = register("skrzynia_rzadka",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_RZADKA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_RZADKA = register("klucz_rzadka", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_EPICKA = register("skrzynia_epicka",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_EPICKA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_EPICKA = register("klucz_epicka", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_ANARCHICZNA = register("skrzynia_anarchiczna",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_ANARCHICZNA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_ANARCHICZNA = register("klucz_anarchiczna", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_PETY = register("skrzynia_pety",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_PETY, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_PETY = register("klucz_pety", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_KOSTIUMY = register("skrzynia_kostiumy",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_KOSTIUMY, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_KOSTIUMY = register("klucz_kostiumy", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_DOLAROWA = register("skrzynia_dolarowa",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_DOLAROWA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_DOLAROWA = register("klucz_dolarowa", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_EVENTOWA = register("skrzynia_eventowa",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_EVENTOWA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_EVENTOWA = register("klucz_eventowa", Item::new, new Item.Properties().stacksTo(64));
+
+	public static final Item SKRZYNIA_SWIATECZNA = register("skrzynia_swiateczna",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_SWIATECZNA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_SWIATECZNA = register("klucz_swiateczna", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_WALENTYNKOWA = register("skrzynia_walentynkowa",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_WALENTYNKOWA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_WALENTYNKOWA = register("klucz_walentynkowa", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_HALLOWEENOWA = register("skrzynia_halloweenowa",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_HALLOWEENOWA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_HALLOWEENOWA = register("klucz_halloweenowa", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_SZKOLNA = register("skrzynia_szkolna",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_SZKOLNA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_SZKOLNA = register("klucz_szkolna", Item::new, new Item.Properties().stacksTo(64));
 
 	public static <T extends Item> T register(String name, Function<Item.Properties, T> itemFactory, Item.Properties settings) {
 		ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));

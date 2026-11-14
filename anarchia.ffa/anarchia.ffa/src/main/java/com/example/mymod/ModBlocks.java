@@ -61,6 +61,42 @@ public class ModBlocks {
 					.requiresCorrectToolForDrops()
 					.strength(50.0F, 1200.0F));
 
+	/** Skrzynie: nie do zniszczenia, otwierane kluczami (SkrzynieManager). */
+	public static final Block SKRZYNIA_RZADKA = register("skrzynia_rzadka", p -> new CrateBlock(p, "rzadka"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_EPICKA = register("skrzynia_epicka", p -> new CrateBlock(p, "epicka"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_ANARCHICZNA = register("skrzynia_anarchiczna", p -> new CrateBlock(p, "anarchiczna"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_PETY = register("skrzynia_pety", p -> new CrateBlock(p, "pety"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_KOSTIUMY = register("skrzynia_kostiumy", p -> new CrateBlock(p, "kostiumy"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_DOLAROWA = register("skrzynia_dolarowa", p -> new CrateBlock(p, "dolarowa"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_EVENTOWA = register("skrzynia_eventowa", p -> new CrateBlock(p, "eventowa"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+
+	public static final Block SKRZYNIA_SWIATECZNA = register("skrzynia_swiateczna", p -> new CrateBlock(p, "swiateczna"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_WALENTYNKOWA = register("skrzynia_walentynkowa", p -> new CrateBlock(p, "walentynkowa"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_HALLOWEENOWA = register("skrzynia_halloweenowa", p -> new CrateBlock(p, "halloweenowa"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_SZKOLNA = register("skrzynia_szkolna", p -> new CrateBlock(p, "szkolna"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+
 	public static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory,
 			BlockBehaviour.Properties properties) {
 		ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));
