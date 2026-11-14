@@ -186,6 +186,8 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.KLUCZ_HALLOWEENOWA);
 					output.accept(ModItems.SKRZYNIA_SZKOLNA);
 					output.accept(ModItems.KLUCZ_SZKOLNA);
+					output.accept(ModItems.SKRZYNIA_NOWE_EVENTOWKI);
+					output.accept(ModItems.KLUCZ_NOWE_EVENTOWKI);
 					// Kolejne skrzynie i klucze dopisujemy tutaj.
 				})
 				.build();

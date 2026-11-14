@@ -279,6 +279,9 @@ public class ModItems {
 	public static final Item SKRZYNIA_SZKOLNA = register("skrzynia_szkolna",
 			props -> new BlockItem(ModBlocks.SKRZYNIA_SZKOLNA, props), new Item.Properties().stacksTo(64));
 	public static final Item KLUCZ_SZKOLNA = register("klucz_szkolna", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_NOWE_EVENTOWKI = register("skrzynia_nowe_eventowki",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_NOWE_EVENTOWKI, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_NOWE_EVENTOWKI = register("klucz_nowe_eventowki", Item::new, new Item.Properties().stacksTo(64));
 
 
 	// ===== Zbroje (netherytowe, zaklęcia nakłada ZbrojeHandler) =====

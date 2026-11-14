@@ -12,15 +12,18 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * GUI skrzyni (3 rzędy): nagrody w slotach od 0, a w ostatnim rzędzie przyciski:
- * 24 = pomarańczowy barwnik (otwórz od razu), 25 = zielony barwnik (animacja 5 s), 26 = bariera (zamknij).
+ * GUI skrzyni (6 rzędów): nagrody w slotach od 0, a w dolnym rzędzie przyciski:
+ * 46 = niebieski barwnik (wszystkie klucze), 48 = zielony (animacja 5 s), 49 = bariera (zamknij), 50 = pomarańczowy (od razu).
  * Przedmiotów z GUI nie da się wyjąć ani włożyć. Menu nie używa ClickType (zmieniony w 26.1) -
  * kliknięcie w slot jest wykrywane w Slot.mayPickup.
  */
 public class SkrzyniaMenu extends AbstractContainerMenu {
-	public static final int BTN_NOW = 24;
-	public static final int BTN_ANIM = 25;
-	public static final int BTN_CLOSE = 26;
+	/** Skrzynia ma 6 rzędów: nagrody w slotach 0-44, przyciski w dolnym rzędzie. */
+	public static final int REWARD_SLOTS = 45;
+	public static final int BTN_ALL = 46; // niebieski: otwórz wszystkie klucze
+	public static final int BTN_ANIM = 48; // zielony: animacja 5 s
+	public static final int BTN_CLOSE = 49; // bariera: zamknij
+	public static final int BTN_NOW = 50; // pomarańczowy: od razu
 
 	final SimpleContainer box;
 	final Crates.Crate crate;
@@ -43,7 +46,9 @@ public class SkrzyniaMenu extends AbstractContainerMenu {
 		@Override
 		public boolean mayPickup(Player player) {
 			if (player instanceof ServerPlayer sp && !busy) {
-				if (index == BTN_NOW) {
+				if (index == BTN_ALL) {
+					SkrzynieManager.requestAll(sp, SkrzyniaMenu.this);
+				} else if (index == BTN_NOW) {
 					SkrzynieManager.request(sp, SkrzyniaMenu.this, false);
 				} else if (index == BTN_ANIM) {
 					SkrzynieManager.request(sp, SkrzyniaMenu.this, true);
@@ -56,22 +61,22 @@ public class SkrzyniaMenu extends AbstractContainerMenu {
 	}
 
 	public SkrzyniaMenu(int id, Inventory inventory, SimpleContainer box, Crates.Crate crate, BlockPos pos) {
-		super(MenuType.GENERIC_9x3, id);
+		super(MenuType.GENERIC_9x6, id);
 		this.box = box;
 		this.crate = crate;
 		this.pos = pos;
-		for (int row = 0; row < 3; row++) {
+		for (int row = 0; row < 6; row++) {
 			for (int col = 0; col < 9; col++) {
 				this.addSlot(new BoxSlot(box, col + row * 9, 8 + col * 18, 18 + row * 18));
 			}
 		}
 		for (int row = 0; row < 3; row++) {
 			for (int col = 0; col < 9; col++) {
-				this.addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
+				this.addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, 140 + row * 18));
 			}
 		}
 		for (int col = 0; col < 9; col++) {
-			this.addSlot(new Slot(inventory, col, 8 + col * 18, 142));
+			this.addSlot(new Slot(inventory, col, 8 + col * 18, 198));
 		}
 	}
 

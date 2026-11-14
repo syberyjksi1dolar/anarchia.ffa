@@ -33,7 +33,7 @@ public final class SkrzynieManager {
 	public static final int ANIM_TICKS = 100;
 	public static final float KEY_DROP_CHANCE = 0.10F;
 	private static final int[] EVENT_TICKS = { 0, 6, 12, 18, 24, 30, 36, 40, 60, 80 };
-	private static final int CENTER = 13;
+	private static final int CENTER = 22;
 
 	private static final class Opening {
 		final UUID player;
@@ -72,10 +72,11 @@ public final class SkrzynieManager {
 
 	/** Podgląd: nagrody w slotach od 0 (bez ozdobnych szyb) i trzy przyciski w ostatnim rzędzie. */
 	public static SimpleContainer preview(Crates.Crate crate, RegistryAccess ra) {
-		SimpleContainer c = new SimpleContainer(27);
-		for (int i = 0; i < crate.entries().size() && i < SkrzyniaMenu.BTN_NOW; i++) {
+		SimpleContainer c = new SimpleContainer(54);
+		for (int i = 0; i < crate.entries().size() && i < SkrzyniaMenu.REWARD_SLOTS; i++) {
 			c.setItem(i, crate.entries().get(i).icon().apply(ra));
 		}
+		c.setItem(SkrzyniaMenu.BTN_ALL, named(Items.BLUE_DYE, "Otwórz wszystkie klucze"));
 		c.setItem(SkrzyniaMenu.BTN_NOW, named(Items.ORANGE_DYE, "Otwórz od razu"));
 		c.setItem(SkrzyniaMenu.BTN_ANIM, named(Items.GREEN_DYE, "Otwórz z animacją (5 s)"));
 		c.setItem(SkrzyniaMenu.BTN_CLOSE, named(Items.BARRIER, "Zamknij"));
@@ -110,6 +111,38 @@ public final class SkrzynieManager {
 				}
 			}
 		}
+	}
+
+	/** Otwiera skrzynię tyle razy, ile gracz ma kluczy (od razu, bez animacji). */
+	public static void requestAll(ServerPlayer sp, SkrzyniaMenu menu) {
+		if (!(sp.level() instanceof ServerLevel level) || BUSY.contains(sp.getUUID()) || menu.busy) {
+			return;
+		}
+		Crates.Crate crate = menu.crate;
+		if (crate.entries().isEmpty()) {
+			sp.sendSystemMessage(Component.literal("Ta skrzynia nie ma jeszcze nagród"), true);
+			return;
+		}
+		int opened = 0;
+		RegistryAccess ra = level.registryAccess();
+		while (takeKey(sp, crate.key())) {
+			int reward = level.getRandom().nextInt(crate.entries().size());
+			for (ItemStack s : crate.entries().get(reward).give().apply(ra)) {
+				if (!sp.getInventory().add(s)) {
+					sp.drop(s, false);
+				}
+			}
+			opened++;
+			if (sp.getAbilities().instabuild && opened >= 64) {
+				break; // w kreatywnym klucze się nie zużywają - ogranicznik
+			}
+		}
+		if (opened == 0) {
+			sp.sendSystemMessage(Component.literal("Potrzebujesz klucza do tej skrzyni"), true);
+			return;
+		}
+		sp.sendSystemMessage(Component.literal("Otwarto skrzyń: " + opened), true);
+		sp.closeContainer();
 	}
 
 	public static void request(ServerPlayer sp, SkrzyniaMenu menu, boolean animated) {
@@ -150,7 +183,7 @@ public final class SkrzynieManager {
 			sp.closeContainer();
 			return;
 		}
-		for (int i = 0; i < 27; i++) {
+		for (int i = 0; i < 54; i++) {
 			menu.box.setItem(i, ItemStack.EMPTY);
 		}
 		OPENINGS.add(o);
