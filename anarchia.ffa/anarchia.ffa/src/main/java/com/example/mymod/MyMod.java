@@ -57,10 +57,12 @@ public class MyMod implements ModInitializer {
 		ArcusMagnusItem.initialize();
 		SilaczHandler.initialize();
 		DolarHandler.initialize();
+		WalentynkiHandler.initialize();
 		KostiumDresser.initialize();
 		PetBalwanekItem.initialize();
 		SlimowyWiosnaItem.initialize();
 		ThrowTracker.initialize();
+		KostkaRubikaItem.initialize();
 		WedkiHandler.initialize();
 		FajerwerkaWyrzutniItem.initialize();
 		RozdzkaMagikaItem.initialize();
@@ -154,6 +156,7 @@ public class MyMod implements ModInitializer {
 				.displayItems((params, output) -> {
 					output.accept(ModItems.SILACZ_KLATA);
 					output.accept(ModItems.DOLAR_KLATA);
+					output.accept(ModItems.WALENTYNKI_KLATA);
 					output.accept(ModItems.PET_BALWANEK);
 					// Kolejne kostiumy i pety dopisujemy tutaj.
 				})
@@ -188,6 +191,8 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.KLUCZ_SZKOLNA);
 					output.accept(ModItems.SKRZYNIA_NOWE_EVENTOWKI);
 					output.accept(ModItems.KLUCZ_NOWE_EVENTOWKI);
+					output.accept(ModItems.SKRZYNIA_ZAJACA);
+					output.accept(ModItems.KLUCZ_ZAJACA);
 					// Kolejne skrzynie i klucze dopisujemy tutaj.
 				})
 				.build();

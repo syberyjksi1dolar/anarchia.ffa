@@ -30,7 +30,8 @@ public final class KostiumDresser {
 
 	private static final List<Costume> COSTUMES = List.of(
 			new Costume(ModItems.SILACZ_KLATA, ModItems.SILACZ_HELM, ModItems.SILACZ_SPODNIE, ModItems.SILACZ_BUTY),
-			new Costume(ModItems.DOLAR_KLATA, ModItems.DOLAR_HELM, ModItems.DOLAR_SPODNIE, ModItems.DOLAR_BUTY));
+			new Costume(ModItems.DOLAR_KLATA, ModItems.DOLAR_HELM, ModItems.DOLAR_SPODNIE, ModItems.DOLAR_BUTY),
+			new Costume(ModItems.WALENTYNKI_KLATA, ModItems.WALENTYNKI_HELM, ModItems.WALENTYNKI_SPODNIE, ModItems.WALENTYNKI_BUTY));
 
 	/** Aktywny kostium gracza (klata kostiumu na ciele lub w ekwipunku pod zwykłym napierśnikiem). */
 	private static final Map<UUID, Item> ACTIVE = new HashMap<>();

@@ -17,6 +17,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ToolMaterial;
 import net.minecraft.world.item.equipment.EquipmentAsset;
 import net.minecraft.world.item.equipment.EquipmentAssets;
+import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.item.equipment.Equippable;
 
 public class ModItems {
@@ -179,38 +180,67 @@ public class ModItems {
 
 	// ===== Kostium Siłacza (komplet 4 części, bez wytrzymałości = niezniszczalny) =====
 	public static final ResourceKey<EquipmentAsset> SILACZ_ASSET = ResourceKey.create(
-			EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, "silacz"));
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
 
 	public static final Item SILACZ_HELM = register("silacz_helm", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x965C3E))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.HEAD).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
 	public static final Item SILACZ_KLATA = register("silacz_klata", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x965C3E))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.CHEST).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
 	public static final Item SILACZ_SPODNIE = register("silacz_spodnie", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x965C3E))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.LEGS).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
 	public static final Item SILACZ_BUTY = register("silacz_buty", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x965C3E))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.FEET).setAsset(SILACZ_ASSET).setDamageOnHurt(false).build()));
 
 
 	// ===== Kostium Dolara (komplet 4 części, niezniszczalny) =====
 	public static final ResourceKey<EquipmentAsset> DOLAR_ASSET = ResourceKey.create(
-			EquipmentAssets.ROOT_ID, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, "dolar"));
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
 
 	public static final Item DOLAR_HELM = register("dolar_helm", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5AC85A))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.HEAD).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
 	public static final Item DOLAR_KLATA = register("dolar_klata", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5AC85A))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.CHEST).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
 	public static final Item DOLAR_SPODNIE = register("dolar_spodnie", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5AC85A))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.LEGS).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
 	public static final Item DOLAR_BUTY = register("dolar_buty", Item::new,
-			new Item.Properties().stacksTo(1).component(DataComponents.EQUIPPABLE,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5AC85A))
+					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.FEET).setAsset(DOLAR_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Walentynkowy (komplet 4 części, niezniszczalny, różowy) =====
+	public static final ResourceKey<EquipmentAsset> WALENTYNKI_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item WALENTYNKI_HELM = register("walentynki_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFF80BF))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(WALENTYNKI_ASSET).setDamageOnHurt(false).build()));
+	public static final Item WALENTYNKI_KLATA = register("walentynki_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFF80BF))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(WALENTYNKI_ASSET).setDamageOnHurt(false).build()));
+	public static final Item WALENTYNKI_SPODNIE = register("walentynki_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFF80BF))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(WALENTYNKI_ASSET).setDamageOnHurt(false).build()));
+	public static final Item WALENTYNKI_BUTY = register("walentynki_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFF80BF))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(WALENTYNKI_ASSET).setDamageOnHurt(false).build()));
 
 	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
 			new Item.Properties().stacksTo(1));
@@ -282,6 +312,9 @@ public class ModItems {
 	public static final Item SKRZYNIA_NOWE_EVENTOWKI = register("skrzynia_nowe_eventowki",
 			props -> new BlockItem(ModBlocks.SKRZYNIA_NOWE_EVENTOWKI, props), new Item.Properties().stacksTo(64));
 	public static final Item KLUCZ_NOWE_EVENTOWKI = register("klucz_nowe_eventowki", Item::new, new Item.Properties().stacksTo(64));
+	public static final Item SKRZYNIA_ZAJACA = register("skrzynia_zajaca",
+			props -> new BlockItem(ModBlocks.SKRZYNIA_ZAJACA, props), new Item.Properties().stacksTo(64));
+	public static final Item KLUCZ_ZAJACA = register("klucz_zajaca", Item::new, new Item.Properties().stacksTo(64));
 
 
 	// ===== Zbroje (netherytowe, zaklęcia nakłada ZbrojeHandler) =====

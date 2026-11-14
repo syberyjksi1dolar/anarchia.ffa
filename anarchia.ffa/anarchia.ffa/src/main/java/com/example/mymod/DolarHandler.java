@@ -51,7 +51,9 @@ public final class DolarHandler {
 	}
 
 	private static boolean isPiece(ItemStack s) {
-		return s.is(ModItems.DOLAR_HELM) || s.is(ModItems.DOLAR_KLATA) || s.is(ModItems.DOLAR_SPODNIE) || s.is(ModItems.DOLAR_BUTY);
+		return s.is(ModItems.DOLAR_HELM) || s.is(ModItems.DOLAR_KLATA) || s.is(ModItems.DOLAR_SPODNIE) || s.is(ModItems.DOLAR_BUTY)
+				|| s.is(ModItems.WALENTYNKI_HELM) || s.is(ModItems.WALENTYNKI_KLATA) || s.is(ModItems.WALENTYNKI_SPODNIE)
+				|| s.is(ModItems.WALENTYNKI_BUTY);
 	}
 
 	public static boolean wearsFullSet(Player p) {

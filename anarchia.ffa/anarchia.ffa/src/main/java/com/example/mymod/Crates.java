@@ -213,6 +213,7 @@ public final class Crates {
 		List<Entry> costumes = new ArrayList<>();
 		costumes.add(simple(ModItems.SILACZ_KLATA, 1));
 		costumes.add(simple(ModItems.DOLAR_KLATA, 1));
+		costumes.add(simple(ModItems.WALENTYNKI_KLATA, 1));
 		add("kostiumy", "Skrzynia Kostiumów", ModItems.KLUCZ_KOSTIUMY, costumes);
 		// ---------- DOLAROWA (równe szanse) - według screena od właściciela ----------
 		List<Entry> dol = new ArrayList<>();
@@ -328,7 +329,35 @@ public final class Crates {
 		sw.add(simple(ModItems.CHYDRO_KLATKA, 1));
 		sw.add(simple(ModItems.ROZGA, 1));
 		add("swiateczna", "Świąteczna Skrzynia", ModItems.KLUCZ_SWIATECZNA, sw);
-		add("walentynkowa", "Walentynkowa Skrzynia", ModItems.KLUCZ_WALENTYNKOWA, new ArrayList<>());
+		// ---------- WALENTYNKOWA (równe szanse) - według screena od właściciela ----------
+		List<Entry> wal = new ArrayList<>();
+		for (Item p : new Item[] { ModItems.ANARCHICZNA_ZBROJA_2_HELM, ModItems.ANARCHICZNA_ZBROJA_2_KLATA,
+				ModItems.ANARCHICZNA_ZBROJA_2_SPODNIE, ModItems.ANARCHICZNA_ZBROJA_2_BUTY }) {
+			wal.add(custom(ra -> enchanted(ra, p, Enchantments.UNBREAKING, 10, Enchantments.PROTECTION, 10)));
+		}
+		for (Item p : new Item[] { Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS }) {
+			wal.add(custom(ra -> enchanted(ra, p, Enchantments.UNBREAKING, 5, Enchantments.PROTECTION, 5)));
+		}
+		wal.add(custom(ra -> enchanted(ra, Items.NETHERITE_SWORD, Enchantments.FIRE_ASPECT, 3, Enchantments.UNBREAKING, 10,
+				Enchantments.SHARPNESS, 7)));
+		wal.add(custom(ra -> enchanted(ra, Items.NETHERITE_PICKAXE, Enchantments.EFFICIENCY, 10, Enchantments.UNBREAKING, 10)));
+		wal.add(simple(Items.GOLDEN_APPLE, 64));
+		wal.add(simple(Items.ENCHANTED_GOLDEN_APPLE, 64));
+		wal.add(simple(Items.ENCHANTED_GOLDEN_APPLE, 32));
+		wal.add(simple(Items.END_CRYSTAL, 64));
+		wal.add(simple(Items.OBSIDIAN, 64));
+		wal.add(simple(Items.RESPAWN_ANCHOR, 64));
+		wal.add(simple(Items.GLOWSTONE, 64));
+		wal.add(simple(Items.ENDER_PEARL, 16));
+		wal.add(simple(Items.TOTEM_OF_UNDYING, 1));
+		wal.add(simple(ModItems.LUK_KUPIDYNA, 1));
+		wal.add(simple(ModItems.WATA_CUKROWA, 64));
+		wal.add(simple(ModItems.LIZAK, 1));
+		wal.add(simple(ModItems.ROG_JEDNOROZCA, 1));
+		wal.add(custom(ra -> PotionContents.createItemStack(Items.SPLASH_POTION, Potions.HARMING)));
+		wal.add(simple(ModItems.ROZA_KUPIDYNA, 1));
+		wal.add(simple(ModItems.SERCE, 64));
+		add("walentynkowa", "Walentynkowa Skrzynia", ModItems.KLUCZ_WALENTYNKOWA, wal);
 		// ---------- HALLOWEENOWA (równe szanse) - według screena od właściciela ----------
 		List<Entry> hw = new ArrayList<>();
 		hw.add(simple(ModItems.TOTEM_ULASKAWIENIA, 1));
@@ -360,7 +389,35 @@ public final class Crates {
 		hw.add(custom(ra -> enchanted(ra, Items.NETHERITE_SWORD, Enchantments.FIRE_ASPECT, 3, Enchantments.UNBREAKING, 10,
 				Enchantments.SHARPNESS, 7)));
 		add("halloweenowa", "Halloweenowa Skrzynia", ModItems.KLUCZ_HALLOWEENOWA, hw);
-		add("szkolna", "Szkolna Skrzynia", ModItems.KLUCZ_SZKOLNA, new ArrayList<>());
+		// ---------- SZKOLNA (równe szanse) - według screena od właściciela ----------
+		List<Entry> szk = new ArrayList<>();
+		for (Item p : new Item[] { ModItems.ANARCHICZNA_ZBROJA_2_HELM, ModItems.ANARCHICZNA_ZBROJA_2_KLATA,
+				ModItems.ANARCHICZNA_ZBROJA_2_SPODNIE, ModItems.ANARCHICZNA_ZBROJA_2_BUTY }) {
+			szk.add(custom(ra -> enchanted(ra, p, Enchantments.UNBREAKING, 10, Enchantments.PROTECTION, 10)));
+		}
+		for (Item p : new Item[] { Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS }) {
+			szk.add(custom(ra -> enchanted(ra, p, Enchantments.UNBREAKING, 5, Enchantments.PROTECTION, 5)));
+		}
+		szk.add(custom(ra -> enchanted(ra, Items.NETHERITE_SWORD, Enchantments.FIRE_ASPECT, 3, Enchantments.UNBREAKING, 10,
+				Enchantments.SHARPNESS, 7)));
+		szk.add(custom(ra -> enchanted(ra, Items.NETHERITE_PICKAXE, Enchantments.EFFICIENCY, 10, Enchantments.UNBREAKING, 10)));
+		szk.add(simple(Items.GOLDEN_APPLE, 64));
+		szk.add(simple(Items.ENCHANTED_GOLDEN_APPLE, 64));
+		szk.add(simple(Items.ENCHANTED_GOLDEN_APPLE, 32));
+		szk.add(simple(Items.END_CRYSTAL, 64));
+		szk.add(simple(Items.OBSIDIAN, 64));
+		szk.add(simple(Items.RESPAWN_ANCHOR, 64));
+		szk.add(simple(Items.GLOWSTONE, 64));
+		szk.add(simple(Items.ENDER_PEARL, 16));
+		szk.add(simple(Items.TOTEM_OF_UNDYING, 1));
+		szk.add(simple(ModItems.ROZGA, 1));
+		szk.add(simple(ModItems.BALONIK_Z_HELEM, 1));
+		szk.add(simple(ModItems.KOSTKA_RUBIKA, 1));
+		szk.add(simple(ModItems.CZERWONY_BALON, 64));
+		szk.add(simple(ModItems.ROZDZKA_ILUZJONISTY, 1));
+		szk.add(simple(ModItems.BOMBA_MAKSIMA, 64));
+		szk.add(simple(ModItems.CUDOWNA_LATARNIA, 1));
+		add("szkolna", "Szkolna Skrzynia", ModItems.KLUCZ_SZKOLNA, szk);
 		// ---------- NOWE EVENTÓWKI (równe szanse) - według screena od właściciela ----------
 		List<Entry> nev = new ArrayList<>();
 		nev.add(simple(ModItems.DZIALKO, 64));
@@ -375,5 +432,33 @@ public final class Crates {
 		nev.add(simple(ModItems.KULKA_BALWANA, 32));
 		nev.add(simple(ModItems.SLIMOWY_WIOSNA, 1));
 		add("nowe_eventowki", "Skrzynia Nowych Eventówek", ModItems.KLUCZ_NOWE_EVENTOWKI, nev);
+		// ---------- ZAJĄCA (równe szanse) - według screena od właściciela ----------
+		List<Entry> zaj = new ArrayList<>();
+		for (Item p : new Item[] { ModItems.ANARCHICZNA_ZBROJA_2_HELM, ModItems.ANARCHICZNA_ZBROJA_2_KLATA,
+				ModItems.ANARCHICZNA_ZBROJA_2_SPODNIE, ModItems.ANARCHICZNA_ZBROJA_2_BUTY }) {
+			zaj.add(custom(ra -> enchanted(ra, p, Enchantments.UNBREAKING, 10, Enchantments.PROTECTION, 10)));
+		}
+		for (Item p : new Item[] { Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS }) {
+			zaj.add(custom(ra -> enchanted(ra, p, Enchantments.UNBREAKING, 5, Enchantments.PROTECTION, 5)));
+		}
+		zaj.add(simple(ModItems.MARCHEWKOWY_MIECZ, 1));
+		zaj.add(simple(ModItems.MARCHEWKOWA_KUSZA, 1));
+		zaj.add(simple(ModItems.LOPATA_GRINCHA, 1));
+		zaj.add(simple(ModItems.WEDKA_GWARDIANA, 1));
+		zaj.add(custom(ra -> enchanted(ra, Items.NETHERITE_SWORD, Enchantments.FIRE_ASPECT, 3, Enchantments.UNBREAKING, 10,
+				Enchantments.SHARPNESS, 7)));
+		zaj.add(custom(ra -> enchanted(ra, Items.NETHERITE_PICKAXE, Enchantments.EFFICIENCY, 10, Enchantments.UNBREAKING, 10)));
+		zaj.add(simple(Items.GOLDEN_APPLE, 64));
+		zaj.add(simple(Items.ENCHANTED_GOLDEN_APPLE, 64));
+		zaj.add(simple(Items.ENCHANTED_GOLDEN_APPLE, 32));
+		zaj.add(simple(Items.END_CRYSTAL, 64));
+		zaj.add(simple(Items.OBSIDIAN, 64));
+		zaj.add(simple(Items.RESPAWN_ANCHOR, 64));
+		zaj.add(simple(Items.GLOWSTONE, 64));
+		zaj.add(simple(Items.ENDER_PEARL, 16));
+		zaj.add(simple(Items.TOTEM_OF_UNDYING, 1));
+		zaj.add(simple(ModItems.ROZGOTOWANA_KUKURYDZA, 16));
+		zaj.add(simple(ModItems.SHULEK_BOXEK, 1));
+		add("zajaca", "Skrzynia Zająca", ModItems.KLUCZ_ZAJACA, zaj);
 	}
 }

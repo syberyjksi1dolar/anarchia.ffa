@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "mymod:walentynki"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "mymod:walentynki"
+      }
+    ]
+  }
+}
