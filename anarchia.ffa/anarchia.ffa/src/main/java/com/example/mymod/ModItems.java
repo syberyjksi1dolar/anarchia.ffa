@@ -280,6 +280,33 @@ public class ModItems {
 			props -> new BlockItem(ModBlocks.SKRZYNIA_SZKOLNA, props), new Item.Properties().stacksTo(64));
 	public static final Item KLUCZ_SZKOLNA = register("klucz_szkolna", Item::new, new Item.Properties().stacksTo(64));
 
+
+	// ===== Zbroje (netherytowe, zaklęcia nakłada ZbrojeHandler) =====
+	public static final Item ZBROJA_DOLARA_HELM = register("zbroja_dolara_helm", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.HELMET));
+	public static final Item ZBROJA_DOLARA_KLATA = register("zbroja_dolara_klata", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.CHESTPLATE));
+	public static final Item ZBROJA_DOLARA_SPODNIE = register("zbroja_dolara_spodnie", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.LEGGINGS));
+	public static final Item ZBROJA_DOLARA_BUTY = register("zbroja_dolara_buty", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.BOOTS));
+	public static final Item ANARCHICZNA_ZBROJA_2_HELM = register("anarchiczna_zbroja_2_helm", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.HELMET));
+	public static final Item ANARCHICZNA_ZBROJA_2_KLATA = register("anarchiczna_zbroja_2_klata", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.CHESTPLATE));
+	public static final Item ANARCHICZNA_ZBROJA_2_SPODNIE = register("anarchiczna_zbroja_2_spodnie", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.LEGGINGS));
+	public static final Item ANARCHICZNA_ZBROJA_2_BUTY = register("anarchiczna_zbroja_2_buty", Item::new,
+			new Item.Properties().humanoidArmor(net.minecraft.world.item.equipment.ArmorMaterials.NETHERITE,
+					net.minecraft.world.item.equipment.ArmorType.BOOTS));
+
 	public static <T extends Item> T register(String name, Function<Item.Properties, T> itemFactory, Item.Properties settings) {
 		ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));
 		T item = itemFactory.apply(settings.setId(itemKey));

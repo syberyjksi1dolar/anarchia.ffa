@@ -111,5 +111,13 @@
   "item.mymod.klucz_halloweenowa": "Halloween Crate Key",
   "item.mymod.skrzynia_szkolna": "School Crate",
   "block.mymod.skrzynia_szkolna": "School Crate",
-  "item.mymod.klucz_szkolna": "School Crate Key"
+  "item.mymod.klucz_szkolna": "School Crate Key",
+  "item.mymod.zbroja_dolara_helm": "Dollar Armor: Helmet",
+  "item.mymod.zbroja_dolara_klata": "Dollar Armor: Chestplate",
+  "item.mymod.zbroja_dolara_spodnie": "Dollar Armor: Leggings",
+  "item.mymod.zbroja_dolara_buty": "Dollar Armor: Boots",
+  "item.mymod.anarchiczna_zbroja_2_helm": "Anarchic Armor 2: Helmet",
+  "item.mymod.anarchiczna_zbroja_2_klata": "Anarchic Armor 2: Chestplate",
+  "item.mymod.anarchiczna_zbroja_2_spodnie": "Anarchic Armor 2: Leggings",
+  "item.mymod.anarchiczna_zbroja_2_buty": "Anarchic Armor 2: Boots"
 }

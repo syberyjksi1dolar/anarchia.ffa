@@ -70,6 +70,7 @@ public class MyMod implements ModInitializer {
 		DynamitItem.initialize();
 		BoskiToporItem.initialize();
 		SkrzynieManager.initialize();
+		ZbrojeHandler.initialize();
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
@@ -133,6 +134,14 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.SHULEK_BOXEK);
 					output.accept(ModItems.DYNAMIT);
 					output.accept(ModItems.BOSKI_TOPOR);
+					output.accept(ModItems.ZBROJA_DOLARA_HELM);
+					output.accept(ModItems.ZBROJA_DOLARA_KLATA);
+					output.accept(ModItems.ZBROJA_DOLARA_SPODNIE);
+					output.accept(ModItems.ZBROJA_DOLARA_BUTY);
+					output.accept(ModItems.ANARCHICZNA_ZBROJA_2_HELM);
+					output.accept(ModItems.ANARCHICZNA_ZBROJA_2_KLATA);
+					output.accept(ModItems.ANARCHICZNA_ZBROJA_2_SPODNIE);
+					output.accept(ModItems.ANARCHICZNA_ZBROJA_2_BUTY);
 					output.accept(ModItems.ROG_KOOZY);
 					// Kolejne eventówki dopisujemy tutaj.
 				})

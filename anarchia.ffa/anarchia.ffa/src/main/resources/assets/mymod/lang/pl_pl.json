@@ -111,5 +111,13 @@
   "item.mymod.klucz_halloweenowa": "Klucz do Halloweenowej Skrzyni",
   "item.mymod.skrzynia_szkolna": "Szkolna Skrzynia",
   "block.mymod.skrzynia_szkolna": "Szkolna Skrzynia",
-  "item.mymod.klucz_szkolna": "Klucz do Szkolnej Skrzyni"
+  "item.mymod.klucz_szkolna": "Klucz do Szkolnej Skrzyni",
+  "item.mymod.zbroja_dolara_helm": "Zbroja Dolara: Hełm",
+  "item.mymod.zbroja_dolara_klata": "Zbroja Dolara: Klata",
+  "item.mymod.zbroja_dolara_spodnie": "Zbroja Dolara: Spodnie",
+  "item.mymod.zbroja_dolara_buty": "Zbroja Dolara: Buty",
+  "item.mymod.anarchiczna_zbroja_2_helm": "Anarchiczna Zbroja 2: Hełm",
+  "item.mymod.anarchiczna_zbroja_2_klata": "Anarchiczna Zbroja 2: Klata",
+  "item.mymod.anarchiczna_zbroja_2_spodnie": "Anarchiczna Zbroja 2: Spodnie",
+  "item.mymod.anarchiczna_zbroja_2_buty": "Anarchiczna Zbroja 2: Buty"
 }
