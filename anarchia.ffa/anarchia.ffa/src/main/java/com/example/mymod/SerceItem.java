@@ -52,7 +52,7 @@ public class SerceItem extends Item {
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer victim && source.getEntity() instanceof ServerPlayer killer && killer != victim
 					&& victim.level() instanceof ServerLevel level && level.getRandom().nextFloat() < DROP_CHANCE) {
-				ItemStack heart = new ItemStack(ModItems.SERCE);
+				ItemStack heart = new ItemStack(ModItems.SERCE_ZYCIA);
 				if (!killer.getInventory().add(heart)) {
 					level.addFreshEntity(new ItemEntity(level, killer.getX(), killer.getY(), killer.getZ(), heart));
 				}

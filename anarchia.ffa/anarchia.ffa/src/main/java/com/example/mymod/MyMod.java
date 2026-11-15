@@ -101,7 +101,6 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.CZERWONY_BALON);
 					output.accept(ModItems.PARASOL);
 					output.accept(ModItems.SERCE);
-					output.accept(ModItems.ZMIANKI);
 					output.accept(ModItems.EXCALIBUR);
 					output.accept(ModItems.BLOK_WIDMO);
 					output.accept(ModItems.TOTEM_ULASKAWIENIA);
@@ -182,7 +181,8 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.KGRINCH_KLATA);
 					output.accept(ModItems.PET_BALWANEK);
 					output.accept(ModItems.PET_DRAKULA);
-					output.accept(ModItems.SERCE);
+					output.accept(ModItems.SERCE_ZYCIA);
+					output.accept(ModItems.ZMIANKI);
 					// Kolejne kostiumy i pety dopisujemy tutaj.
 				})
 				.build();
