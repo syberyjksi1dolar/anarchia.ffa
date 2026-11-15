@@ -413,6 +413,10 @@ public class ModItems {
 	public static final Item PET_DRAKULA = register("pet_drakula", PetDrakulaItem::new,
 			new Item.Properties().stacksTo(1));
 
+	public static final Item SERCE = register("serce", SerceItem::new, new Item.Properties().stacksTo(16));
+
+	public static final Item ZMIANKI = register("zmianki", ZmiankiItem::new, new Item.Properties().stacksTo(64));
+
 	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
 			new Item.Properties().stacksTo(1));
 

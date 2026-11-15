@@ -65,6 +65,11 @@ public class MyMod implements ModInitializer {
 		UrwisHandler.initialize();
 		NurekHandler.initialize();
 		WampirHandler.initialize();
+		SerceItem.initialize();
+		ZmiankiItem.initialize();
+		// Skrzyń nie da się zniszczyć, nawet w trybie kreatywnym.
+		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register(
+				(level, player, pos, state, blockEntity) -> !(state.getBlock() instanceof CrateBlock));
 		GrinchCostumeHandler.initialize();
 		KostiumDresser.initialize();
 		PetBalwanekItem.initialize();
@@ -96,6 +101,7 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.CZERWONY_BALON);
 					output.accept(ModItems.PARASOL);
 					output.accept(ModItems.SERCE);
+					output.accept(ModItems.ZMIANKI);
 					output.accept(ModItems.EXCALIBUR);
 					output.accept(ModItems.BLOK_WIDMO);
 					output.accept(ModItems.TOTEM_ULASKAWIENIA);
@@ -176,6 +182,7 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.KGRINCH_KLATA);
 					output.accept(ModItems.PET_BALWANEK);
 					output.accept(ModItems.PET_DRAKULA);
+					output.accept(ModItems.SERCE);
 					// Kolejne kostiumy i pety dopisujemy tutaj.
 				})
 				.build();

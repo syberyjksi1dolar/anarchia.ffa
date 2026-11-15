@@ -31,7 +31,7 @@ import net.minecraft.world.level.block.Block;
  */
 public final class SkrzynieManager {
 	public static final int ANIM_TICKS = 100;
-	public static final float KEY_DROP_CHANCE = 0.10F;
+	public static final float KEY_DROP_CHANCE = 0.25F;
 	private static final int[] EVENT_TICKS = { 0, 6, 12, 18, 24, 30, 36, 40, 60, 80 };
 	private static final int CENTER = 22;
 
@@ -193,7 +193,7 @@ public final class SkrzynieManager {
 		// Skrzynie są nie do zniszczenia, także w trybie kreatywnym.
 		PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) -> !(state.getBlock() instanceof CrateBlock));
 
-		// Klucze wypadają z mobów zabitych przez gracza: 10% szans na losowy klucz.
+		// Klucze wypadają z mobów zabitych przez gracza: 25% szans na losowy klucz.
 		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> {
 			if (entity instanceof net.minecraft.world.entity.Mob && source.getEntity() instanceof ServerPlayer
 					&& entity.level() instanceof ServerLevel level && level.getRandom().nextFloat() < KEY_DROP_CHANCE) {
