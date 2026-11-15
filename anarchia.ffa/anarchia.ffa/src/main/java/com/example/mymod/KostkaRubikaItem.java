@@ -36,7 +36,9 @@ public class KostkaRubikaItem extends Item {
 				return InteractionResult.PASS;
 			}
 			if (GrinchCostumeHandler.isImmune(target)) {
-				player.sendSystemMessage(Component.literal("Cel jest chroniony Wybuchem Grincha!"), true);
+				if (player instanceof ServerPlayer sp) {
+					sp.sendSystemMessage(Component.literal("Cel jest chroniony Wybuchem Grincha!"), true);
+				}
 				return InteractionResult.FAIL;
 			}
 			if (player.getCooldowns().isOnCooldown(self)) {
