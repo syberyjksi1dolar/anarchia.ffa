@@ -417,6 +417,32 @@ public class ModItems {
 
 	public static final Item ZMIANKI = register("zmianki", ZmiankiItem::new, new Item.Properties().stacksTo(64));
 
+	public static final Item KSIEGA_REGENERACJI = register("ksiega_regeneracji", p -> new KsiegaItem(p, KsiegaItem.REGENERACJA), new Item.Properties().stacksTo(16));
+
+	public static final Item KSIEGA_KRYTYCZNE = register("ksiega_krytyczne", p -> new KsiegaItem(p, KsiegaItem.KRYTYCZNE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_ULASKAWIENIE = register("ksiega_ulaskawienia", p -> new KsiegaItem(p, KsiegaItem.ULASKAWIENIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_WAMPIRYZM = register("ksiega_wampiryzmu", p -> new KsiegaItem(p, KsiegaItem.WAMPIRYZM), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_WYTRZYMALOSC = register("ksiega_wytrzymalosci", p -> new KsiegaItem(p, KsiegaItem.WYTRZYMALOSC), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_SZCZESCIE = register("ksiega_szczescia", p -> new KsiegaItem(p, KsiegaItem.SZCZESCIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_SZYBKOSC = register("ksiega_szybkosci", p -> new KsiegaItem(p, KsiegaItem.SZYBKOSC), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_WOLNOSC = register("ksiega_wolnosci", p -> new KsiegaItem(p, KsiegaItem.WOLNOSC), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_SPADANIE = register("ksiega_spadania", p -> new KsiegaItem(p, KsiegaItem.SPADANIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_NIEPODPALENIE = register("ksiega_niepodpalenia", p -> new KsiegaItem(p, KsiegaItem.NIEPODPALENIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_MIM = register("ksiega_mima", p -> new KsiegaItem(p, KsiegaItem.MIM), new Item.Properties().stacksTo(16));
+
+	public static final Item KSIEGA_ZAMROZENIE = register("ksiega_zamrozenia", p -> new KsiegaItem(p, KsiegaItem.ZAMROZENIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_KZM = register("ksiega_kzm", p -> new KsiegaItem(p, KsiegaItem.KZM), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_PIORUNY = register("ksiega_piorunow", p -> new KsiegaItem(p, KsiegaItem.PIORUNY), new Item.Properties().stacksTo(16));
+
+	public static final Item KSIEGA_CIERNIE = register("ksiega_ciernie", p -> new KsiegaItem(p, KsiegaItem.CIERNIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_SERCA = register("ksiega_serc", p -> new KsiegaItem(p, KsiegaItem.SERCA), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_ODBICIE = register("ksiega_odbicia", p -> new KsiegaItem(p, KsiegaItem.ODBICIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_NIEWIDZIALNOSC = register("ksiega_niewidzialnosci", p -> new KsiegaItem(p, KsiegaItem.NIEWIDZIALNOSC), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_ODDYCHANIE = register("ksiega_oddychania", p -> new KsiegaItem(p, KsiegaItem.ODDYCHANIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_AUTOWYTAPIANIE = register("ksiega_autowytapiania", p -> new KsiegaItem(p, KsiegaItem.AUTOWYTAPIANIE), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_MAGNES = register("ksiega_magnesu", p -> new KsiegaItem(p, KsiegaItem.MAGNES), new Item.Properties().stacksTo(16));
+	public static final Item KSIEGA_DOSWIADCZENIE = register("ksiega_doswiadczenia", p -> new KsiegaItem(p, KsiegaItem.DOSWIADCZENIE), new Item.Properties().stacksTo(16));
+
 	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
 			new Item.Properties().stacksTo(1));
 

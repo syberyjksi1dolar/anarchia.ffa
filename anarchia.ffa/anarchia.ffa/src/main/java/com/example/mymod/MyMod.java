@@ -17,6 +17,9 @@ public class MyMod implements ModInitializer {
 	public static final String MOD_ID = "mymod";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+	public static final ResourceKey<CreativeModeTab> KSIEGI_TAB_KEY = ResourceKey.create(
+			Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "ksiegi"));
+
 	public static final ResourceKey<CreativeModeTab> EVENT_TAB_KEY = ResourceKey.create(
 			Registries.CREATIVE_MODE_TAB, Identifier.fromNamespaceAndPath(MOD_ID, "eventowki"));
 
@@ -67,6 +70,8 @@ public class MyMod implements ModInitializer {
 		WampirHandler.initialize();
 		SerceItem.initialize();
 		ZmiankiItem.initialize();
+		KsiegaItem.initialize();
+		KsiegiHandler.initialize();
 		// Skrzyń nie da się zniszczyć, nawet w trybie kreatywnym.
 		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register(
 				(level, player, pos, state, blockEntity) -> !(state.getBlock() instanceof CrateBlock));
@@ -87,6 +92,37 @@ public class MyMod implements ModInitializer {
 		BoskiToporItem.initialize();
 		SkrzynieManager.initialize();
 		ZbrojeHandler.initialize();
+
+		// Zakładka z księgami zaklęć - rejestrowana przed Eventówkami, więc jest przed nimi.
+		CreativeModeTab ksiegiTab = FabricCreativeModeTab.builder()
+				.icon(() -> new ItemStack(ModItems.KSIEGA_REGENERACJI))
+				.title(Component.translatable("creativeTab.mymod.ksiegi"))
+				.displayItems((params, output) -> {
+					output.accept(ModItems.KSIEGA_REGENERACJI);
+					output.accept(ModItems.KSIEGA_KRYTYCZNE);
+					output.accept(ModItems.KSIEGA_ULASKAWIENIE);
+					output.accept(ModItems.KSIEGA_WAMPIRYZM);
+					output.accept(ModItems.KSIEGA_WYTRZYMALOSC);
+					output.accept(ModItems.KSIEGA_SZCZESCIE);
+					output.accept(ModItems.KSIEGA_SZYBKOSC);
+					output.accept(ModItems.KSIEGA_WOLNOSC);
+					output.accept(ModItems.KSIEGA_SPADANIE);
+					output.accept(ModItems.KSIEGA_NIEPODPALENIE);
+					output.accept(ModItems.KSIEGA_MIM);
+					output.accept(ModItems.KSIEGA_ZAMROZENIE);
+					output.accept(ModItems.KSIEGA_KZM);
+					output.accept(ModItems.KSIEGA_PIORUNY);
+					output.accept(ModItems.KSIEGA_CIERNIE);
+					output.accept(ModItems.KSIEGA_SERCA);
+					output.accept(ModItems.KSIEGA_ODBICIE);
+					output.accept(ModItems.KSIEGA_NIEWIDZIALNOSC);
+					output.accept(ModItems.KSIEGA_ODDYCHANIE);
+					output.accept(ModItems.KSIEGA_AUTOWYTAPIANIE);
+					output.accept(ModItems.KSIEGA_MAGNES);
+					output.accept(ModItems.KSIEGA_DOSWIADCZENIE);
+				})
+				.build();
+		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, KSIEGI_TAB_KEY, ksiegiTab);
 
 		CreativeModeTab eventTab = FabricCreativeModeTab.builder()
 				.icon(() -> new ItemStack(ModItems.GRINCH_AXE))
