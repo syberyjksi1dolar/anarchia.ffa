@@ -22,7 +22,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.Entity;
 
 /**
- * Wilk: użycie przywołuje oswojonego wilka, który atakuje najbliższego byta (nie właściciela).
+ * Wilk: użycie przywołuje oswojonego wilka, który atakuje najbliższego byta (nie właściciela i nie inne wilki z jajka).
  * Jeśli wilk zginie, jajko przepada; jeśli zabije byta, jajko wraca (raz na wilka).
  */
 public class WilkItem extends Item {
@@ -80,7 +80,7 @@ public class WilkItem extends Item {
 				LivingEntity best = null;
 				double bestDist = Double.MAX_VALUE;
 				for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, wolf.getBoundingBox().inflate(SEARCH_RADIUS),
-						x -> x != wolf && !x.getUUID().equals(pack.owner) && Util13.targetable(x))) {
+						x -> x != wolf && !x.getUUID().equals(pack.owner) && !WOLVES.containsKey(x.getUUID()) && Util13.targetable(x))) {
 					double d = e.distanceToSqr(wolf);
 					if (d < bestDist) {
 						bestDist = d;

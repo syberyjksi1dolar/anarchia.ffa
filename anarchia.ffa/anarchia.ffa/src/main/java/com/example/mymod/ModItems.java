@@ -242,6 +242,177 @@ public class ModItems {
 					.component(DataComponents.EQUIPPABLE,
 					Equippable.builder(EquipmentSlot.FEET).setAsset(WALENTYNKI_ASSET).setDamageOnHurt(false).build()));
 
+	// ===== Kostium Mima (komplet 4 części, niezniszczalny, czarny - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> MIM_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item MIM_HELM = register("mim_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1F1F24))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(MIM_ASSET).setDamageOnHurt(false).build()));
+	public static final Item MIM_KLATA = register("mim_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1F1F24))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(MIM_ASSET).setDamageOnHurt(false).build()));
+	public static final Item MIM_SPODNIE = register("mim_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1F1F24))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(MIM_ASSET).setDamageOnHurt(false).build()));
+	public static final Item MIM_BUTY = register("mim_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1F1F24))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(MIM_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Pirata (komplet 4 części, niezniszczalny, ciemnobrązowy - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> PIRAT_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item PIRAT_HELM = register("pirat_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5A3A22))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(PIRAT_ASSET).setDamageOnHurt(false).build()));
+	public static final Item PIRAT_KLATA = register("pirat_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5A3A22))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(PIRAT_ASSET).setDamageOnHurt(false).build()));
+	public static final Item PIRAT_SPODNIE = register("pirat_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5A3A22))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(PIRAT_ASSET).setDamageOnHurt(false).build()));
+	public static final Item PIRAT_BUTY = register("pirat_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x5A3A22))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(PIRAT_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Przeciwzakażeniowy (komplet 4 części, niezniszczalny, żółty - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> PZ_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item PZ_HELM = register("przeciwzakazeniowy_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF5D020))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(PZ_ASSET).setDamageOnHurt(false).build()));
+	public static final Item PZ_KLATA = register("przeciwzakazeniowy_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF5D020))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(PZ_ASSET).setDamageOnHurt(false).build()));
+	public static final Item PZ_SPODNIE = register("przeciwzakazeniowy_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF5D020))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(PZ_ASSET).setDamageOnHurt(false).build()));
+	public static final Item PZ_BUTY = register("przeciwzakazeniowy_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF5D020))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(PZ_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Zabójczego Królika (komplet 4 części, niezniszczalny, biały - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> KROLIK_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item KROLIK_HELM = register("krolik_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF2F2F2))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(KROLIK_ASSET).setDamageOnHurt(false).build()));
+	public static final Item KROLIK_KLATA = register("krolik_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF2F2F2))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(KROLIK_ASSET).setDamageOnHurt(false).build()));
+	public static final Item KROLIK_SPODNIE = register("krolik_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF2F2F2))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(KROLIK_ASSET).setDamageOnHurt(false).build()));
+	public static final Item KROLIK_BUTY = register("krolik_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xF2F2F2))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(KROLIK_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Małego Urwisa (komplet 4 części, niezniszczalny, jasnożółty - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> URWIS_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item URWIS_HELM = register("urwis_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFFF0A0))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(URWIS_ASSET).setDamageOnHurt(false).build()));
+	public static final Item URWIS_KLATA = register("urwis_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFFF0A0))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(URWIS_ASSET).setDamageOnHurt(false).build()));
+	public static final Item URWIS_SPODNIE = register("urwis_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFFF0A0))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(URWIS_ASSET).setDamageOnHurt(false).build()));
+	public static final Item URWIS_BUTY = register("urwis_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xFFF0A0))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(URWIS_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Nurka Głębinowego (komplet 4 części, niezniszczalny, ciemnozielony - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> NUREK_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item NUREK_HELM = register("nurek_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1E5A2A))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(NUREK_ASSET).setDamageOnHurt(false).build()));
+	public static final Item NUREK_KLATA = register("nurek_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1E5A2A))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(NUREK_ASSET).setDamageOnHurt(false).build()));
+	public static final Item NUREK_SPODNIE = register("nurek_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1E5A2A))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(NUREK_ASSET).setDamageOnHurt(false).build()));
+	public static final Item NUREK_BUTY = register("nurek_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x1E5A2A))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(NUREK_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Wampira (komplet 4 części, niezniszczalny, karmazynowy - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> WAMPIR_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item WAMPIR_HELM = register("wampir_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xB01030))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(WAMPIR_ASSET).setDamageOnHurt(false).build()));
+	public static final Item WAMPIR_KLATA = register("wampir_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xB01030))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(WAMPIR_ASSET).setDamageOnHurt(false).build()));
+	public static final Item WAMPIR_SPODNIE = register("wampir_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xB01030))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(WAMPIR_ASSET).setDamageOnHurt(false).build()));
+	public static final Item WAMPIR_BUTY = register("wampir_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0xB01030))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(WAMPIR_ASSET).setDamageOnHurt(false).build()));
+
+	// ===== Kostium Grincha (komplet 4 części, niezniszczalny, zielony - wygląd skórzanej zbroi) =====
+	public static final ResourceKey<EquipmentAsset> KGRINCH_ASSET = ResourceKey.create(
+			EquipmentAssets.ROOT_ID, Identifier.withDefaultNamespace("leather"));
+
+	public static final Item KGRINCH_HELM = register("kgrinch_helm", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x2FB52F))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.HEAD).setAsset(KGRINCH_ASSET).setDamageOnHurt(false).build()));
+	public static final Item KGRINCH_KLATA = register("kgrinch_klata", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x2FB52F))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.CHEST).setAsset(KGRINCH_ASSET).setDamageOnHurt(false).build()));
+	public static final Item KGRINCH_SPODNIE = register("kgrinch_spodnie", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x2FB52F))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.LEGS).setAsset(KGRINCH_ASSET).setDamageOnHurt(false).build()));
+	public static final Item KGRINCH_BUTY = register("kgrinch_buty", Item::new,
+			new Item.Properties().stacksTo(1).component(DataComponents.DYED_COLOR, new DyedItemColor(0x2FB52F))
+					.component(DataComponents.EQUIPPABLE,
+					Equippable.builder(EquipmentSlot.FEET).setAsset(KGRINCH_ASSET).setDamageOnHurt(false).build()));
+
+	public static final Item PET_DRAKULA = register("pet_drakula", PetDrakulaItem::new,
+			new Item.Properties().stacksTo(1));
+
 	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
 			new Item.Properties().stacksTo(1));
 

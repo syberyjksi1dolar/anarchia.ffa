@@ -53,7 +53,15 @@ public final class DolarHandler {
 	private static boolean isPiece(ItemStack s) {
 		return s.is(ModItems.DOLAR_HELM) || s.is(ModItems.DOLAR_KLATA) || s.is(ModItems.DOLAR_SPODNIE) || s.is(ModItems.DOLAR_BUTY)
 				|| s.is(ModItems.WALENTYNKI_HELM) || s.is(ModItems.WALENTYNKI_KLATA) || s.is(ModItems.WALENTYNKI_SPODNIE)
-				|| s.is(ModItems.WALENTYNKI_BUTY);
+				|| s.is(ModItems.WALENTYNKI_BUTY) || s.is(ModItems.MIM_HELM) || s.is(ModItems.MIM_KLATA)
+				|| s.is(ModItems.MIM_SPODNIE) || s.is(ModItems.MIM_BUTY) || s.is(ModItems.PIRAT_HELM)
+				|| s.is(ModItems.PIRAT_KLATA) || s.is(ModItems.PIRAT_SPODNIE) || s.is(ModItems.PIRAT_BUTY)
+				|| s.is(ModItems.PZ_HELM) || s.is(ModItems.PZ_KLATA) || s.is(ModItems.PZ_SPODNIE) || s.is(ModItems.PZ_BUTY)
+				|| s.is(ModItems.KROLIK_HELM) || s.is(ModItems.KROLIK_KLATA) || s.is(ModItems.KROLIK_SPODNIE) || s.is(ModItems.KROLIK_BUTY)
+				|| s.is(ModItems.URWIS_HELM) || s.is(ModItems.URWIS_KLATA) || s.is(ModItems.URWIS_SPODNIE) || s.is(ModItems.URWIS_BUTY)
+				|| s.is(ModItems.NUREK_HELM) || s.is(ModItems.NUREK_KLATA) || s.is(ModItems.NUREK_SPODNIE) || s.is(ModItems.NUREK_BUTY)
+				|| s.is(ModItems.WAMPIR_HELM) || s.is(ModItems.WAMPIR_KLATA) || s.is(ModItems.WAMPIR_SPODNIE) || s.is(ModItems.WAMPIR_BUTY)
+				|| s.is(ModItems.KGRINCH_HELM) || s.is(ModItems.KGRINCH_KLATA) || s.is(ModItems.KGRINCH_SPODNIE) || s.is(ModItems.KGRINCH_BUTY);
 	}
 
 	public static boolean wearsFullSet(Player p) {

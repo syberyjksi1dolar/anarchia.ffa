@@ -209,11 +209,20 @@ public final class Crates {
 		// Pety i kostiumy, które już są w modzie (równe szanse).
 		List<Entry> pets = new ArrayList<>();
 		pets.add(simple(ModItems.PET_BALWANEK, 1));
+		pets.add(simple(ModItems.PET_DRAKULA, 1));
 		add("pety", "Skrzynia Petów", ModItems.KLUCZ_PETY, pets);
 		List<Entry> costumes = new ArrayList<>();
 		costumes.add(simple(ModItems.SILACZ_KLATA, 1));
 		costumes.add(simple(ModItems.DOLAR_KLATA, 1));
 		costumes.add(simple(ModItems.WALENTYNKI_KLATA, 1));
+		costumes.add(simple(ModItems.MIM_KLATA, 1));
+		costumes.add(simple(ModItems.PIRAT_KLATA, 1));
+		costumes.add(simple(ModItems.PZ_KLATA, 1));
+		costumes.add(simple(ModItems.KROLIK_KLATA, 1));
+		costumes.add(simple(ModItems.URWIS_KLATA, 1));
+		costumes.add(simple(ModItems.NUREK_KLATA, 1));
+		costumes.add(simple(ModItems.WAMPIR_KLATA, 1));
+		costumes.add(simple(ModItems.KGRINCH_KLATA, 1));
 		add("kostiumy", "Skrzynia Kostiumów", ModItems.KLUCZ_KOSTIUMY, costumes);
 		// ---------- DOLAROWA (równe szanse) - według screena od właściciela ----------
 		List<Entry> dol = new ArrayList<>();

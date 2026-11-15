@@ -42,9 +42,8 @@ public final class WedkiHandler {
 			return;
 		}
 		var hooked = hook.getHookedIn();
-		boolean stuck = hooked != null || hook.onGround() || hook.horizontalCollision || hook.verticalCollision
-				|| hook.getDeltaMovement().lengthSqr() < 0.01;
-		if (!stuck || (hooked == null && hook.isInWater())) {
+		// Haczyk pływa w wodzie (zwykłe łowienie) i nic nie złapał: bez przyciągania.
+		if (hooked == null && hook.isInWater()) {
 			return;
 		}
 		Vec3 target = hooked != null ? hooked.getBoundingBox().getCenter() : hook.position();
@@ -54,8 +53,8 @@ public final class WedkiHandler {
 			return;
 		}
 		Vec3 dir = d.normalize();
-		double speed = Math.min(1.8, 0.5 + dist * 0.1);
-		p.setDeltaMovement(dir.x * speed, dir.y * speed + 0.25, dir.z * speed);
+		double speed = Math.min(2.2, 0.7 + dist * 0.12);
+		p.setDeltaMovement(dir.x * speed, dir.y * speed + 0.3, dir.z * speed);
 		p.hurtMarked = true;
 		p.resetFallDistance();
 	}

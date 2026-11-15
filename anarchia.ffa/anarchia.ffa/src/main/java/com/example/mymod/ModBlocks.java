@@ -99,6 +99,9 @@ public class ModBlocks {
 	public static final Block SKRZYNIA_NOWE_EVENTOWKI = register("skrzynia_nowe_eventowki", p -> new CrateBlock(p, "nowe_eventowki"),
 			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
 					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
+	public static final Block SKRZYNIA_ZAJACA = register("skrzynia_zajaca", p -> new CrateBlock(p, "zajaca"),
+			BlockBehaviour.Properties.of().mapColor(MapColor.STONE).sound(SoundType.STONE)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK).strength(-1.0F, 3600000.0F));
 
 	public static <T extends Block> T register(String name, Function<BlockBehaviour.Properties, T> factory,
 			BlockBehaviour.Properties properties) {

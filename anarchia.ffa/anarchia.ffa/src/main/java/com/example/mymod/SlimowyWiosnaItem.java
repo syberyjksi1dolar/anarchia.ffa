@@ -20,11 +20,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Slimowy Wiosna: kucając z przedmiotem w ręce ładujesz moc (5 s). Prawy klik wyrzuca cię w stronę patrzenia:
+ * Slimowy Wiosna: kucając z przedmiotem w ręce ładujesz moc (1,25 s). Prawy klik wyrzuca cię w stronę patrzenia:
  * 50% = 4 bloki, 100% = 6 bloków (pomiędzy liniowo). Przy pełnym naładowaniu trafione byty dostają 5 serc obrażeń.
  */
 public class SlimowyWiosnaItem extends Item {
-	public static final int FULL_TICKS = 100;
+	public static final int FULL_TICKS = 25; // 4x szybciej niż wcześniej (było 5 s, teraz 1,25 s)
 	public static final double MIN_BLOCKS = 2.0;
 	public static final double FULL_BLOCKS = 6.0;
 	public static final float FULL_DAMAGE = 10.0F;

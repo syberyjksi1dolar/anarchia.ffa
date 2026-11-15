@@ -31,7 +31,15 @@ public final class KostiumDresser {
 	private static final List<Costume> COSTUMES = List.of(
 			new Costume(ModItems.SILACZ_KLATA, ModItems.SILACZ_HELM, ModItems.SILACZ_SPODNIE, ModItems.SILACZ_BUTY),
 			new Costume(ModItems.DOLAR_KLATA, ModItems.DOLAR_HELM, ModItems.DOLAR_SPODNIE, ModItems.DOLAR_BUTY),
-			new Costume(ModItems.WALENTYNKI_KLATA, ModItems.WALENTYNKI_HELM, ModItems.WALENTYNKI_SPODNIE, ModItems.WALENTYNKI_BUTY));
+			new Costume(ModItems.WALENTYNKI_KLATA, ModItems.WALENTYNKI_HELM, ModItems.WALENTYNKI_SPODNIE, ModItems.WALENTYNKI_BUTY),
+			new Costume(ModItems.MIM_KLATA, ModItems.MIM_HELM, ModItems.MIM_SPODNIE, ModItems.MIM_BUTY),
+			new Costume(ModItems.PIRAT_KLATA, ModItems.PIRAT_HELM, ModItems.PIRAT_SPODNIE, ModItems.PIRAT_BUTY),
+			new Costume(ModItems.PZ_KLATA, ModItems.PZ_HELM, ModItems.PZ_SPODNIE, ModItems.PZ_BUTY),
+			new Costume(ModItems.KROLIK_KLATA, ModItems.KROLIK_HELM, ModItems.KROLIK_SPODNIE, ModItems.KROLIK_BUTY),
+			new Costume(ModItems.URWIS_KLATA, ModItems.URWIS_HELM, ModItems.URWIS_SPODNIE, ModItems.URWIS_BUTY),
+			new Costume(ModItems.NUREK_KLATA, ModItems.NUREK_HELM, ModItems.NUREK_SPODNIE, ModItems.NUREK_BUTY),
+			new Costume(ModItems.WAMPIR_KLATA, ModItems.WAMPIR_HELM, ModItems.WAMPIR_SPODNIE, ModItems.WAMPIR_BUTY),
+			new Costume(ModItems.KGRINCH_KLATA, ModItems.KGRINCH_HELM, ModItems.KGRINCH_SPODNIE, ModItems.KGRINCH_BUTY));
 
 	/** Aktywny kostium gracza (klata kostiumu na ciele lub w ekwipunku pod zwykłym napierśnikiem). */
 	private static final Map<UUID, Item> ACTIVE = new HashMap<>();

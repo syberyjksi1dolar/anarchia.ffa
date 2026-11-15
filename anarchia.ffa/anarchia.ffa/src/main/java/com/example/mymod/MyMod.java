@@ -58,8 +58,17 @@ public class MyMod implements ModInitializer {
 		SilaczHandler.initialize();
 		DolarHandler.initialize();
 		WalentynkiHandler.initialize();
+		MimHandler.initialize();
+		PiratHandler.initialize();
+		PrzeciwzakazeniowyHandler.initialize();
+		KrolikHandler.initialize();
+		UrwisHandler.initialize();
+		NurekHandler.initialize();
+		WampirHandler.initialize();
+		GrinchCostumeHandler.initialize();
 		KostiumDresser.initialize();
 		PetBalwanekItem.initialize();
+		PetDrakulaItem.initialize();
 		SlimowyWiosnaItem.initialize();
 		ThrowTracker.initialize();
 		KostkaRubikaItem.initialize();
@@ -157,7 +166,16 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.SILACZ_KLATA);
 					output.accept(ModItems.DOLAR_KLATA);
 					output.accept(ModItems.WALENTYNKI_KLATA);
+					output.accept(ModItems.MIM_KLATA);
+					output.accept(ModItems.PIRAT_KLATA);
+					output.accept(ModItems.PZ_KLATA);
+					output.accept(ModItems.KROLIK_KLATA);
+					output.accept(ModItems.URWIS_KLATA);
+					output.accept(ModItems.NUREK_KLATA);
+					output.accept(ModItems.WAMPIR_KLATA);
+					output.accept(ModItems.KGRINCH_KLATA);
 					output.accept(ModItems.PET_BALWANEK);
+					output.accept(ModItems.PET_DRAKULA);
 					// Kolejne kostiumy i pety dopisujemy tutaj.
 				})
 				.build();

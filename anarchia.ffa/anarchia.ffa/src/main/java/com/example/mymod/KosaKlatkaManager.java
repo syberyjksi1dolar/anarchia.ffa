@@ -21,10 +21,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Klatka z Kosy: 6 x 6 x 7 (wysokość), bez dołu (zostaje ziemia), na 15 sekund.
+ * Klatka z Kosy: 6 x 6 x 7 (wysokość) ze szkła razem z podłogą, na 15 sekund.
  *  - w środku wszyscy mogą stawiać bloki i niszczyć tylko te, które sami postawili,
- *  - ściany i sufit są niezniszczalne i odporne na wybuchy (od razu się odbudowują),
- *  - po 15 s postawione bloki znikają, a ściany wracają do poprzednich bloków,
+ *  - ściany, sufit i podłoga są niezniszczalne i odporne na wybuchy (od razu się odbudowują),
+ *  - po 15 s postawione bloki znikają, a ściany i podłoga wracają do poprzednich (zwykłych, zniszczalnych) bloków,
  *  - właściciel dostaje Pośpiech V i Siłę I, zamknięty byt dostaje Ślepotę i Nudności.
  */
 public final class KosaKlatkaManager {
@@ -47,7 +47,7 @@ public final class KosaKlatkaManager {
 			this.minX = minX;
 			this.maxX = minX + WIDTH - 1;
 			this.minY = minY;
-			this.maxY = minY + HEIGHT - 1;
+			this.maxY = minY + HEIGHT; // minY to teraz podłoga, więc wysokość środka i sufit bez zmian
 			this.minZ = minZ;
 			this.maxZ = minZ + WIDTH - 1;
 		}
@@ -58,7 +58,7 @@ public final class KosaKlatkaManager {
 		}
 
 		boolean isWall(BlockPos p) {
-			return p.getX() == minX || p.getX() == maxX || p.getZ() == minZ || p.getZ() == maxZ || p.getY() == maxY;
+			return p.getX() == minX || p.getX() == maxX || p.getZ() == minZ || p.getZ() == maxZ || p.getY() == maxY || p.getY() == minY;
 		}
 	}
 
@@ -105,7 +105,7 @@ public final class KosaKlatkaManager {
 		LivingEntity target = null;
 		double best = Double.MAX_VALUE;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(REACH),
-				x -> x != player && x.isAlive() && !x.isSpectator())) {
+				x -> x != player && x.isAlive() && !x.isSpectator() && !GrinchCostumeHandler.isImmune(x))) {
 			Vec3 to = e.position().add(0.0, e.getBbHeight() / 2.0, 0.0).subtract(player.getEyePosition());
 			double dist = to.length();
 			if (dist > MAX_DISTANCE + 0.5 || to.normalize().dot(look) < 0.8) {
@@ -124,7 +124,7 @@ public final class KosaKlatkaManager {
 		int minX = (int) Math.floor(mid.x) - WIDTH / 2;
 		int minZ = (int) Math.floor(mid.z) - WIDTH / 2;
 		int minY = (int) Math.floor(Math.min(player.getY(), target.getY()));
-		Cage cage = new Cage(level, level.getGameTime() + DURATION_TICKS, minX, minY, minZ);
+		Cage cage = new Cage(level, level.getGameTime() + DURATION_TICKS, minX, minY - 1, minZ); // minY - 1 = podłoga ze szkła
 		if (!cage.contains(player.blockPosition()) || !cage.contains(target.blockPosition())
 				|| cage.isWall(player.blockPosition()) || cage.isWall(target.blockPosition())) {
 			return false; // nie mieszczą się oboje w środku

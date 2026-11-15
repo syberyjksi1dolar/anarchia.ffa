@@ -188,8 +188,12 @@ public final class DzialkoManager {
 					mob.setTarget(decoyEntity); // zaatakowany mob atakuje działko
 				}
 				arrow.setPos(muzzle.x, muzzle.y, muzzle.z);
-				arrow.setBaseDamage(0.6); // przy prędkości 1,6 daje dokładnie 1 HP
-				arrow.shoot(dir.x, dir.y + dir.horizontalDistance() * 0.04, dir.z, 1.6F, 0.5F);
+				// Szybka strzała + kompensacja opadania, żeby leciała prosto w najbliższy byt (bez rozrzutu).
+				double speed = 3.0;
+				double flight = dir.length() / speed; // liczba ticków lotu
+				double drop = 0.05 * flight * (flight + 1.0) / 2.0;
+				arrow.setBaseDamage(0.3); // przy tej prędkości daje dokładnie 1 HP
+				arrow.shoot(dir.x, dir.y + drop, dir.z, (float) speed, 0.0F);
 				level.addFreshEntity(arrow);
 				level.playSound(null, c.pos, SoundEvents.ARROW_SHOOT, SoundSource.BLOCKS, 1.0F, 1.0F);
 				c.nextShot = now + SHOT_INTERVAL;

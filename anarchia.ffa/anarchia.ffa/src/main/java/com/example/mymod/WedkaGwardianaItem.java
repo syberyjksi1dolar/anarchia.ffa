@@ -18,10 +18,11 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-/** Wędka Gwardiana: zamiast haczyka wystrzeliwuje Gwardiana na 6 bloków. Trafiony dostaje Powolne Wydobywanie. Bez cooldownu. */
+/** Wędka Gwardiana: zamiast haczyka wystrzeliwuje Gwardiana na 6 bloków. Trafiony dostaje Powolne Wydobywanie III na 5 s, a Gwardian zostaje przy nim 5 s i znika. Bez cooldownu. */
 public class WedkaGwardianaItem extends Item {
 	public static final double RANGE = 6.0;
 	public static final double STEP = 0.9;
+	public static final int HOLD_TICKS = 5 * 20;
 
 	private static final class Shot {
 		final ServerLevel level;
@@ -29,6 +30,8 @@ public class WedkaGwardianaItem extends Item {
 		final UUID owner;
 		final Vec3 dir;
 		double travelled;
+		LivingEntity target; // trafiony byt: Gwardian zostaje przy nim 5 s
+		int ticksLeft;
 
 		Shot(ServerLevel level, LivingEntity guardian, UUID owner, Vec3 dir) {
 			this.level = level;
@@ -53,14 +56,23 @@ public class WedkaGwardianaItem extends Item {
 					it.remove();
 					continue;
 				}
+				if (s.target != null) {
+					if (s.target.isRemoved() || --s.ticksLeft <= 0) {
+						s.guardian.discard();
+						it.remove();
+					} else {
+						s.guardian.setPos(s.target.getX(), s.target.getY() + s.target.getBbHeight() * 0.5 - 0.3, s.target.getZ());
+					}
+					continue;
+				}
 				s.guardian.setPos(s.guardian.position().add(s.dir.scale(STEP)));
 				s.travelled += STEP;
 				var targets = s.level.getEntitiesOfClass(LivingEntity.class, s.guardian.getBoundingBox().inflate(0.7),
 						e -> e != s.guardian && e.isAlive() && !e.isSpectator() && !e.getUUID().equals(s.owner));
 				if (!targets.isEmpty()) {
-					EffectUtil.give(targets.get(0), "mining_fatigue", 10 * 20, 2); // Powolne Wydobywanie III
-					s.guardian.discard();
-					it.remove();
+					s.target = targets.get(0);
+					s.ticksLeft = HOLD_TICKS;
+					EffectUtil.give(s.target, "mining_fatigue", HOLD_TICKS, 2); // Powolne Wydobywanie III na 5 s
 				} else if (s.travelled >= RANGE) {
 					s.guardian.discard();
 					it.remove();
