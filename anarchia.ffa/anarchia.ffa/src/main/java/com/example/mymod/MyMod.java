@@ -72,6 +72,7 @@ public class MyMod implements ModInitializer {
 		ZmiankiItem.initialize();
 		KsiegaItem.initialize();
 		KsiegiHandler.initialize();
+		RangiManager.initialize();
 		// Skrzyń nie da się zniszczyć, nawet w trybie kreatywnym.
 		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register(
 				(level, player, pos, state, blockEntity) -> !(state.getBlock() instanceof CrateBlock));
