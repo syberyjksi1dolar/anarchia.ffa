@@ -46,6 +46,15 @@ public class PetDrakulaItem extends Item {
 		return PETS.containsValue(e);
 	}
 
+	/** Chowa peta tego gracza (używane, gdy przywołuje innego peta - tylko jeden naraz). */
+	public static void dismissFor(ServerPlayer sp) {
+		dismiss(sp.getUUID());
+		var hp = sp.getAttribute(Attributes.MAX_HEALTH);
+		if (hp != null) {
+			hp.removeModifier(HP_ID);
+		}
+	}
+
 	private static void dismiss(UUID id) {
 		Entity stand = PETS.remove(id);
 		if (stand != null) {
@@ -136,6 +145,7 @@ public class PetDrakulaItem extends Item {
 			sp.sendSystemMessage(Component.literal("Pet Drakula schowany"), true);
 			return InteractionResult.SUCCESS;
 		}
+		PetBalwanekItem.dismissFor(sp);
 		var stand = EntityType.ARMOR_STAND.create(serverLevel, EntitySpawnReason.TRIGGERED);
 		if (stand == null) {
 			return InteractionResult.FAIL;
