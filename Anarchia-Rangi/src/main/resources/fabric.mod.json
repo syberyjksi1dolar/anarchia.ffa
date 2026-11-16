@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "anarchia_rangi",
+  "version": "${version}",
+  "name": "Anarchia Rangi",
+  "description": "System rang VIP, SVIP, MVIP, GVIP, DVIP i TWORCA dla Anarchia.ffa.",
+  "authors": ["Anarchia.ffa"],
+  "license": "All-Rights-Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "pl.anarchia.rangi.AnarchiaRangi"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "=26.1.1",
+    "fabric-api": "*",
+    "java": ">=25"
+  }
+}
