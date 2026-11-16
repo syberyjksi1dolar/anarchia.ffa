@@ -133,6 +133,18 @@ public final class RangiManager {
 		return 0;
 	}
 
+	/** Etykieta rangi do wyświetlania: [VIP], [TWÓRCA] lub „brak”. */
+	public static Component rankTag(ServerPlayer p) {
+		int lvl = level(p);
+		if (lvl > 0) {
+			return Component.literal("[").withStyle(ChatFormatting.GRAY).append(rankName(lvl)).append(Component.literal("]").withStyle(ChatFormatting.GRAY));
+		}
+		if (isCreator(p)) {
+			return Component.literal("[").withStyle(ChatFormatting.GRAY).append(creatorName()).append(Component.literal("]").withStyle(ChatFormatting.GRAY));
+		}
+		return Component.literal("brak").withStyle(ChatFormatting.GRAY);
+	}
+
 	public static boolean isCreator(ServerPlayer p) {
 		return TWORCA.equals(data(p).rank);
 	}
