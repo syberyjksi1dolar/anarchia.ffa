@@ -34,6 +34,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.server.MinecraftServer;
@@ -51,8 +52,12 @@ import net.minecraft.world.item.Items;
  */
 public final class RangiManager {
 	public static final String[] RANKS = { "vip", "svip", "mvip", "gvip", "dvip" };
-	private static final ChatFormatting[] COLORS = { ChatFormatting.GREEN, ChatFormatting.AQUA, ChatFormatting.LIGHT_PURPLE,
-			ChatFormatting.GOLD, ChatFormatting.RED };
+	/** Kolory rang: VIP żółty, SVIP zielony, MVIP jasnozielony, GVIP niebieski, DVIP ciemnozielony, TWÓRCA fioletowy. */
+	public static final int[] RGB = { 0xFFFF55, 0x2EB82E, 0x55FF55, 0x5555FF, 0x00AA00 };
+	public static final int RGB_TWORCA = 0xAA00AA;
+	/** Przybliżone kolory dla drużyn scoreboardu (nick nad głową). */
+	private static final ChatFormatting[] COLORS = { ChatFormatting.YELLOW, ChatFormatting.GREEN, ChatFormatting.GREEN,
+			ChatFormatting.BLUE, ChatFormatting.DARK_GREEN };
 	public static final String TWORCA = "tworca";
 	private static final long DAY_MS = 24L * 60L * 60L * 1000L;
 
@@ -133,11 +138,11 @@ public final class RangiManager {
 	}
 
 	private static Component creatorName() {
-		return Component.literal("TWORCA").withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.BOLD);
+		return Component.literal("TWÓRCA").withStyle(Style.EMPTY.withColor(RGB_TWORCA).withBold(true));
 	}
 
 	private static Component rankName(int lvl) {
-		return Component.literal(RANKS[lvl - 1].toUpperCase(Locale.ROOT)).withStyle(COLORS[lvl - 1], ChatFormatting.BOLD);
+		return Component.literal(RANKS[lvl - 1].toUpperCase(Locale.ROOT)).withStyle(Style.EMPTY.withColor(RGB[lvl - 1]).withBold(true));
 	}
 
 	private static boolean isAdmin(CommandSourceStack s) {
@@ -330,8 +335,15 @@ public final class RangiManager {
 			{ { "rzadka", "5" }, { "epicka", "3" }, { "anarchiczna", "2" } },
 			{ { "rzadka", "5" }, { "epicka", "5" }, { "anarchiczna", "3" }, { "dolarowa", "1" } } };
 
+	/** Klucze rangi; tier 0 = TWÓRCA: po 10 kluczy każdego rodzaju. */
 	private static List<ItemStack> keyItems(int tier) {
 		List<ItemStack> items = new ArrayList<>();
+		if (tier == 0) {
+			for (Crates.Crate c : Crates.all()) {
+				items.add(new ItemStack(c.key(), 10));
+			}
+			return items;
+		}
 		for (String[] r : KEY_REWARDS[tier - 1]) {
 			Crates.Crate c = Crates.get(r[0]);
 			if (c != null) {
@@ -341,19 +353,20 @@ public final class RangiManager {
 		return items;
 	}
 
-	/** /kluczevip ... /kluczedvip: okno z kluczami rangi i zielonym przyciskiem; klik w przycisk lub klucz odbiera komplet (raz na 24 h). */
+	private static Component label(int tier) {
+		return tier == 0 ? creatorName() : rankName(tier);
+	}
+
+	/** Okno z kluczami rangi (tier 0 = TWÓRCA) i zielonym przyciskiem; klik w przycisk lub klucz odbiera komplet (raz na 24 h). */
 	private static int keys(CommandSourceStack src, int tier) {
 		ServerPlayer p = src.getPlayer();
 		if (p == null) {
 			src.sendFailure(Component.literal("Tej komendy może użyć tylko gracz."));
 			return 0;
 		}
-		if (level(p) < tier) {
-			if (level(p) == 0 && isCreator(p)) {
-				src.sendFailure(Component.literal("Ranga ").append(creatorName()).append(Component.literal(": klucze zostaną dodane później.")));
-			} else {
-				src.sendFailure(Component.literal("Potrzebujesz rangi ").append(rankName(tier)).append(Component.literal(" lub wyższej.")));
-			}
+		boolean allowed = tier == 0 ? isCreator(p) : level(p) >= tier;
+		if (!allowed) {
+			src.sendFailure(Component.literal("Potrzebujesz rangi ").append(label(tier)).append(tier == 0 ? Component.literal(".") : Component.literal(" lub wyższej.")));
 			return 0;
 		}
 		SimpleContainer box = new SimpleContainer(27);
@@ -362,23 +375,65 @@ public final class RangiManager {
 			box.setItem(i, items.get(i).copy());
 		}
 		box.setItem(26, greenButton());
-		open(p, Component.literal("Klucze ").append(rankName(tier)), box, (sp, index) -> {
+		final String claimId = "klucze_" + (tier == 0 ? TWORCA : RANKS[tier - 1]);
+		open(p, Component.literal("Klucze ").append(label(tier)), box, (sp, index) -> {
 			sp.closeContainer();
 			long now = System.currentTimeMillis();
-			String id = "klucze_" + RANKS[tier - 1];
-			Long last = data(sp).claims.get(id);
+			Long last = data(sp).claims.get(claimId);
 			if (last != null && now - last < DAY_MS) {
 				sp.sendSystemMessage(Component.literal("Klucze odbierzesz ponownie za " + left(DAY_MS - (now - last)) + "."));
 				return;
 			}
-			data(sp).claims.put(id, now);
+			data(sp).claims.put(claimId, now);
 			save();
 			for (ItemStack s : keyItems(tier)) {
 				give(sp, s);
 			}
-			sp.sendSystemMessage(Component.literal("Odebrano klucze rangi ").append(rankName(tier)).append(Component.literal("!")));
+			sp.sendSystemMessage(Component.literal("Odebrano klucze rangi ").append(label(tier)).append(Component.literal("!")));
 		});
 		return 1;
+	}
+
+	/** Numer rangi z nazwy: 1-5 = vip..dvip, 0 = twórca, -1 = nieznana. */
+	private static int tierOf(String name) {
+		String n = name.toLowerCase(Locale.ROOT).replace('ó', 'o');
+		if (n.equals(TWORCA)) {
+			return 0;
+		}
+		for (int i = 0; i < RANKS.length; i++) {
+			if (RANKS[i].equals(n)) {
+				return i + 1;
+			}
+		}
+		return -1;
+	}
+
+	/** /klucze: okno kluczy twojej (najwyższej) rangi. */
+	private static int keysOwn(CommandSourceStack src) {
+		ServerPlayer p = src.getPlayer();
+		if (p == null) {
+			src.sendFailure(Component.literal("Tej komendy może użyć tylko gracz."));
+			return 0;
+		}
+		int lvl = level(p);
+		if (lvl > 0) {
+			return keys(src, lvl);
+		}
+		if (isCreator(p)) {
+			return keys(src, 0);
+		}
+		src.sendFailure(Component.literal("Nie masz żadnej rangi. Dostępne rangi: VIP, SVIP, MVIP, GVIP, DVIP, TWÓRCA."));
+		return 0;
+	}
+
+	/** /klucze [ranga]: okno kluczy wskazanej rangi (musisz ją mieć lub wyższą). */
+	private static int keysRank(CommandSourceStack src, String name) {
+		int tier = tierOf(name);
+		if (tier < 0) {
+			src.sendFailure(Component.literal("Nieznana ranga. Dostępne: vip, svip, mvip, gvip, dvip, tworca."));
+			return 0;
+		}
+		return keys(src, tier);
 	}
 
 	private static int info(CommandSourceStack src) {
@@ -397,7 +452,15 @@ public final class RangiManager {
 			msg = msg.copy().append(Component.literal("brak").withStyle(ChatFormatting.GRAY));
 		}
 		p.sendSystemMessage(msg);
-		p.sendSystemMessage(Component.literal("Dostępne rangi: vip, svip, mvip, gvip, dvip, tworca. Komendy: /vip /svip /mvip /gvip /dvip (kit na 24 h), /kluczevip /kluczesvip /kluczemvip /kluczegvip /kluczedvip (klucze na 24 h)."));
+		Component all = Component.literal("Rangi: ");
+		for (int i = 1; i <= RANKS.length; i++) {
+			all = all.copy().append(Component.literal("[").withStyle(ChatFormatting.GRAY)).append(rankName(i))
+					.append(Component.literal("] ").withStyle(ChatFormatting.GRAY));
+		}
+		all = all.copy().append(Component.literal("[").withStyle(ChatFormatting.GRAY)).append(creatorName())
+				.append(Component.literal("]").withStyle(ChatFormatting.GRAY));
+		p.sendSystemMessage(all);
+		p.sendSystemMessage(Component.literal("Komendy: /vip /svip /mvip /gvip /dvip (kit na 24 h), /klucze oraz /klucze [ranga] (klucze na 24 h)."));
 		return 1;
 	}
 
@@ -424,7 +487,7 @@ public final class RangiManager {
 			src.sendFailure(Component.literal("Nie ma takiego gracza online: " + playerName));
 			return 0;
 		}
-		String r = rank.toLowerCase(Locale.ROOT);
+		String r = rank.toLowerCase(Locale.ROOT).replace('ó', 'o');
 		boolean valid = r.equals("brak") || r.equals(TWORCA);
 		for (String s : RANKS) {
 			valid |= s.equals(r);
@@ -467,6 +530,10 @@ public final class RangiManager {
 			final int need = i + 1;
 			d.register(Commands.literal(RANKS[i]).executes(ctx -> kit(ctx.getSource(), need)));
 		}
+		d.register(Commands.literal("klucze")
+				.executes(ctx -> keysOwn(ctx.getSource()))
+				.then(Commands.argument("ranga", StringArgumentType.word())
+						.executes(ctx -> keysRank(ctx.getSource(), StringArgumentType.getString(ctx, "ranga")))));
 		for (int i = 0; i < RANKS.length; i++) {
 			final int tier = i + 1;
 			d.register(Commands.literal("klucze" + RANKS[i]).executes(ctx -> keys(ctx.getSource(), tier)));
@@ -502,7 +569,7 @@ public final class RangiManager {
 			Component line = Component.literal("[").withStyle(ChatFormatting.GRAY)
 					.append(creator ? creatorName() : rankName(lvl))
 					.append(Component.literal("] ").withStyle(ChatFormatting.GRAY))
-					.append(Component.literal(sender.getName().getString()).withStyle(creator ? ChatFormatting.DARK_PURPLE : COLORS[lvl - 1]))
+					.append(Component.literal(sender.getName().getString()).withStyle(Style.EMPTY.withColor(creator ? RGB_TWORCA : RGB[lvl - 1])))
 					.append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
 					.append(Component.literal(message.decoratedContent().getString()).withStyle(ChatFormatting.WHITE));
 			sender.level().getServer().getPlayerList().broadcastSystemMessage(line, false);

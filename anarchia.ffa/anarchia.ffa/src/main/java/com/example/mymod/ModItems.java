@@ -443,6 +443,25 @@ public class ModItems {
 	public static final Item KSIEGA_MAGNES = register("ksiega_magnesu", p -> new KsiegaItem(p, KsiegaItem.MAGNES), new Item.Properties().stacksTo(16));
 	public static final Item KSIEGA_DOSWIADCZENIE = register("ksiega_doswiadczenia", p -> new KsiegaItem(p, KsiegaItem.DOSWIADCZENIE), new Item.Properties().stacksTo(16));
 
+	public static final Item RANGA_VIP = register("ranga_vip", Item::new, new Item.Properties().stacksTo(1)
+			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga VIP")
+					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0xFFFF55).withBold(true))));
+	public static final Item RANGA_SVIP = register("ranga_svip", Item::new, new Item.Properties().stacksTo(1)
+			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga SVIP")
+					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x2EB82E).withBold(true))));
+	public static final Item RANGA_MVIP = register("ranga_mvip", Item::new, new Item.Properties().stacksTo(1)
+			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga MVIP")
+					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x55FF55).withBold(true))));
+	public static final Item RANGA_GVIP = register("ranga_gvip", Item::new, new Item.Properties().stacksTo(1)
+			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga GVIP")
+					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x5555FF).withBold(true))));
+	public static final Item RANGA_DVIP = register("ranga_dvip", Item::new, new Item.Properties().stacksTo(1)
+			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga DVIP")
+					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x00AA00).withBold(true))));
+	public static final Item RANGA_TWORCA = register("ranga_tworca", Item::new, new Item.Properties().stacksTo(1)
+			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga TWÓRCA")
+					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0xAA00AA).withBold(true))));
+
 	public static final Item PET_BALWANEK = register("pet_balwanek", PetBalwanekItem::new,
 			new Item.Properties().stacksTo(1));
 

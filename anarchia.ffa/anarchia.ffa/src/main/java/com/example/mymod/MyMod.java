@@ -121,6 +121,12 @@ public class MyMod implements ModInitializer {
 					output.accept(ModItems.KSIEGA_AUTOWYTAPIANIE);
 					output.accept(ModItems.KSIEGA_MAGNES);
 					output.accept(ModItems.KSIEGA_DOSWIADCZENIE);
+					output.accept(ModItems.RANGA_VIP);
+					output.accept(ModItems.RANGA_SVIP);
+					output.accept(ModItems.RANGA_MVIP);
+					output.accept(ModItems.RANGA_GVIP);
+					output.accept(ModItems.RANGA_DVIP);
+					output.accept(ModItems.RANGA_TWORCA);
 				})
 				.build();
 		Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, KSIEGI_TAB_KEY, ksiegiTab);
