@@ -489,6 +489,31 @@ public final class RangiManager {
 		return null;
 	}
 
+	/** Odbiór rangi z przedmiotu: ustawia rangę i pokazuje na środku ekranu wszystkim napis. */
+	public static boolean claimRank(ServerPlayer p, String r) {
+		int tier = tierOf(r);
+		if (tier < 0) {
+			return false;
+		}
+		if (r.equals(data(p).rank)) {
+			p.sendSystemMessage(Component.literal("Masz już tę rangę."), true);
+			return false;
+		}
+		net.minecraft.server.MinecraftServer server = p.level().getServer();
+		data(p).rank = r;
+		save();
+		applyTeam(server, p);
+		Component title = Component.literal("Gracz ").withStyle(ChatFormatting.WHITE)
+				.append(Component.literal(p.getName().getString()).withStyle(ChatFormatting.YELLOW))
+				.append(Component.literal(" odebrał rangę ").withStyle(ChatFormatting.WHITE))
+				.append(label(tier));
+		for (ServerPlayer o : server.getPlayerList().getPlayers()) {
+			o.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(10, 70, 20));
+			o.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(title));
+		}
+		return true;
+	}
+
 	private static int setRank(CommandSourceStack src, String playerName, String rank) {
 		if (!isAdmin(src)) {
 			src.sendFailure(Component.literal("Tylko administrator może użyć tej komendy."));

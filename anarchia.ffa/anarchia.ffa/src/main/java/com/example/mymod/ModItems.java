@@ -443,22 +443,22 @@ public class ModItems {
 	public static final Item KSIEGA_MAGNES = register("ksiega_magnesu", p -> new KsiegaItem(p, KsiegaItem.MAGNES), new Item.Properties().stacksTo(16));
 	public static final Item KSIEGA_DOSWIADCZENIE = register("ksiega_doswiadczenia", p -> new KsiegaItem(p, KsiegaItem.DOSWIADCZENIE), new Item.Properties().stacksTo(16));
 
-	public static final Item RANGA_VIP = register("ranga_vip", Item::new, new Item.Properties().stacksTo(1)
+	public static final Item RANGA_VIP = register("ranga_vip", p -> new RangaItem(p, "vip"), new Item.Properties().stacksTo(1)
 			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga VIP")
 					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0xFFFF55).withBold(true))));
-	public static final Item RANGA_SVIP = register("ranga_svip", Item::new, new Item.Properties().stacksTo(1)
+	public static final Item RANGA_SVIP = register("ranga_svip", p -> new RangaItem(p, "svip"), new Item.Properties().stacksTo(1)
 			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga SVIP")
 					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x2EB82E).withBold(true))));
-	public static final Item RANGA_MVIP = register("ranga_mvip", Item::new, new Item.Properties().stacksTo(1)
+	public static final Item RANGA_MVIP = register("ranga_mvip", p -> new RangaItem(p, "mvip"), new Item.Properties().stacksTo(1)
 			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga MVIP")
 					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x55FF55).withBold(true))));
-	public static final Item RANGA_GVIP = register("ranga_gvip", Item::new, new Item.Properties().stacksTo(1)
+	public static final Item RANGA_GVIP = register("ranga_gvip", p -> new RangaItem(p, "gvip"), new Item.Properties().stacksTo(1)
 			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga GVIP")
 					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x5555FF).withBold(true))));
-	public static final Item RANGA_DVIP = register("ranga_dvip", Item::new, new Item.Properties().stacksTo(1)
+	public static final Item RANGA_DVIP = register("ranga_dvip", p -> new RangaItem(p, "dvip"), new Item.Properties().stacksTo(1)
 			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga DVIP")
 					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x00AA00).withBold(true))));
-	public static final Item RANGA_TWORCA = register("ranga_tworca", Item::new, new Item.Properties().stacksTo(1)
+	public static final Item RANGA_TWORCA = register("ranga_tworca", p -> new RangaItem(p, "tworca"), new Item.Properties().stacksTo(1)
 			.component(DataComponents.ITEM_NAME, net.minecraft.network.chat.Component.literal("Ranga TWÓRCA")
 					.withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0xAA00AA).withBold(true))));
 
@@ -565,6 +565,10 @@ public class ModItems {
 
 	public static <T extends Item> T register(String name, Function<Item.Properties, T> itemFactory, Item.Properties settings) {
 		ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MyMod.MOD_ID, name));
+		net.minecraft.world.item.component.ItemLore opis = Opisy.lore(name);
+		if (opis != null) {
+			settings.component(DataComponents.LORE, opis);
+		}
 		T item = itemFactory.apply(settings.setId(itemKey));
 		Registry.register(BuiltInRegistries.ITEM, itemKey, item);
 		return item;
