@@ -609,6 +609,9 @@ public final class RangiManager {
 
 		// Czat: [RANGA] Nick: wiadomość (tylko gracze z rangą; reszta jak w grze).
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
+			if (Rynek.captureChat(sender, message.decoratedContent().getString())) {
+				return false;
+			}
 			int lvl = level(sender);
 			boolean creator = lvl == 0 && isCreator(sender);
 			if (lvl == 0 && !creator) {

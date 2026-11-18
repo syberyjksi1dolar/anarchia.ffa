@@ -95,7 +95,7 @@ public final class SklepManager {
 			box.setItem(e.slot(), sellIcon(e));
 		}
 		refreshHeader(box, p);
-		p.openMenu(new SimpleMenuProvider((id, inv, pl) -> new SklepMenu(id, inv, box, (sp, idx, shift) -> clickSell(sp, box, idx, shift)),
+		p.openMenu(new SimpleMenuProvider((id, inv, pl) -> new SklepMenu(id, inv, box, (sp, idx, shift, prawy) -> clickSell(sp, box, idx, shift)),
 				Component.literal("Sprzedaż")));
 	}
 

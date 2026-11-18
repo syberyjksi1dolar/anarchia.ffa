@@ -116,13 +116,13 @@ public final class Opisy {
 		put("zatopiony_statek", "Przez 10 s wszystkie byty w promieniu 14 bloków (poza tobą) dostają Powolne opadanie II, Zatrucie II i Osłabienie II. Ty dostajesz Siłę I.",
 				"Postaw blok.", "Cooldown stawiania 1 min 30 s. Po restarcie serwera statek przestaje działać.");
 		put("platek_sniegu", "Uderzony byt zamarza na 3 s (nie rusza się ani nie skacze).",
-				"Uderz przeciwnika.", "Cooldown 10 s.");
+				"Uderz przeciwnika.", "Cooldown 10 s. Zużywalny: przy użyciu ubywa 1 sztuka.");
 		put("czerwony_balon", "Unosi cię w górę na 10 s (Lewitacja II), a potem opadasz miękko (nie giniesz od upadku).",
-				"Prawy klik.", "Cooldown 30 s.");
+				"Prawy klik.", "Cooldown 30 s. Zużywalny: przy użyciu ubywa 1 sztuka.");
 		put("parasol", "Odpycha wszystkie byty w promieniu 6 bloków (poza tobą).",
-				"Prawy klik.", "Cooldown 10 s.");
+				"Prawy klik.", "Cooldown 10 s. Zużywalny: przy użyciu ubywa 1 sztuka.");
 		put("serce", "Uderzony byt dostaje Spowolnienie i Ślepotę na 6 s.",
-				"Uderz przeciwnika.", "Cooldown 10 s.");
+				"Uderz przeciwnika.", "Cooldown 10 s. Zużywalny: przy użyciu ubywa 1 sztuka.");
 		put("excalibur", "Miecz z Ostrością 7 (+4 obrażeń) i dodatkowymi +58% obrażeń.",
 				"Trzymaj w ręce i walcz.", "Można go ulepszyć przedmiotem Zmianki.");
 		put("totem_ulaskawienia", "Gdy umierasz, nie tracisz przedmiotów (wracają po odrodzeniu). Totem się zużywa.",
@@ -202,7 +202,7 @@ public final class Opisy {
 		put("slimowy_wiosna", "Wyrzuca cię w stronę patrzenia: 50% mocy to 4 bloki, 100% to 6 bloków. Przy pełnym naładowaniu trafione byty dostają 5 serc obrażeń.",
 				"Kucaj z przedmiotem w ręce (1,25 s ładowania), a potem prawy klik.", "");
 		put("kulka_balwana", "Trafiony byt dostaje Spowolnienie I i Osłabienie I na 3 s.",
-				"Rzuć jak śnieżkę.", "Bez cooldownu.");
+				"Rzuć jak śnieżkę.", "Bez cooldownu. Zużywalny: przy użyciu ubywa 1 sztuka.");
 		put("wedka_18", "Zwykła wędka. Zwinięcie linki przyciąga cię do haczyka (do bloku albo bytu). Haczyk w graczu zadaje mu 2 serca.",
 				"Zarzuć wędkę, a potem kliknij prawym przyciskiem, żeby zwinąć linkę.", "Cooldown 10 s tylko na atak graczy.");
 		put("fajerwerka_wyrzutni", "Wystrzeliwuje cię w górę (do 8 bloków lotu). Pasek pokazuje paliwo.",
@@ -210,7 +210,7 @@ public final class Opisy {
 		put("rozdzka_magika", "Ma 6 segmentów, każdy ładuje się za 4 HP zadanych obrażeń. Po pełnym naładowaniu włącza niebieską wiązkę (5 s), która rani trafiony byt.",
 				"Atakuj, żeby naładować, a potem przytrzymaj prawy przycisk.", "Po wyczerpaniu 5 s pasek zeruje się.");
 		put("perelka_zamianka", "Po trafieniu byta zamienia miejscami ciebie i trafionego.",
-				"Rzuć jak perłę Endermana.", "Cooldown 20 s.");
+				"Rzuć jak perłę Endermana.", "Cooldown 20 s. Zużywalny: przy użyciu ubywa 1 sztuka.");
 		put("wedeczka_perelka", "Złapany byt nie może się teleportować ani używać pereł Endu, dopóki jest na lince.",
 				"Zarzuć wędkę na byt.", "");
 		put("wilk", "Przywołuje oswojonego wilka, który atakuje najbliższego byta (nie ciebie).",

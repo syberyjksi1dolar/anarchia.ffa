@@ -9,7 +9,7 @@ import net.minecraft.world.inventory.ContainerInput;
 /** Menu 6-rzędowe sklepu: przekazuje do akcji informację, czy kliknięto z Shiftem (kliknięcia w górną część nie przenoszą przedmiotów). */
 public class SklepMenu extends RangiMenu {
 	public interface Klik {
-		void klik(ServerPlayer p, int slot, boolean shift);
+		void klik(ServerPlayer p, int slot, boolean shift, boolean prawy);
 	}
 
 	private final SimpleContainer box;
@@ -27,7 +27,7 @@ public class SklepMenu extends RangiMenu {
 		if (slotId >= 0 && slotId < box.getContainerSize()
 				&& (clickType == ContainerInput.PICKUP || clickType == ContainerInput.QUICK_MOVE)) {
 			if (player instanceof ServerPlayer sp && !box.getItem(slotId).isEmpty()) {
-				klik.klik(sp, slotId, clickType == ContainerInput.QUICK_MOVE);
+				klik.klik(sp, slotId, clickType == ContainerInput.QUICK_MOVE, button == 1);
 			}
 			return;
 		}
