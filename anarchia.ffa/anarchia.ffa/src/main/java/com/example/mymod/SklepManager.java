@@ -145,6 +145,24 @@ public final class SklepManager {
 				+ ". Masz " + Pieniadze.format(sp)), true);
 	}
 
+	private static ItemStack icon(Item item, String name, ChatFormatting color, String opis) {
+		ItemStack s = new ItemStack(item);
+		s.set(DataComponents.CUSTOM_NAME, Component.literal(name).withStyle(color, ChatFormatting.BOLD)
+				.withStyle(st -> st.withItalic(false)));
+		s.set(DataComponents.LORE, new ItemLore(List.of(
+				Component.literal(opis).withStyle(ChatFormatting.GRAY).withStyle(st -> st.withItalic(false)))));
+		return s;
+	}
+
+	private static void open(ServerPlayer p) {
+		SimpleContainer box = new SimpleContainer(27);
+		box.setItem(SLOT_SERCE, icon(ModItems.SERCE_ZYCIA, "Sklep za serca", ChatFormatting.RED, "Kliknij, aby otworzyć."));
+		box.setItem(SLOT_SKLEP, icon(Items.DIAMOND, "Sklep", ChatFormatting.AQUA, "Rzeczy do sprzedania. Kliknij, aby otworzyć."));
+		box.setItem(SLOT_RYNEK, icon(Items.APPLE, "Rynek", ChatFormatting.GREEN, "Kliknij, aby otworzyć."));
+		p.openMenu(new SimpleMenuProvider((id, inv, pl) -> new RangiMenu(id, inv, box, SklepManager::click),
+				Component.literal("Sklep")));
+	}
+
 	/** Po kliknięciu diamentu: sprzedaż (niebieski kamień) i kupno (netherytowy miecz). */
 	private static void openSklep(ServerPlayer p) {
 		SimpleContainer box = new SimpleContainer(27);

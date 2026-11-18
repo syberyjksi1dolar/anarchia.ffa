@@ -4,7 +4,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 
 /** Menu 6-rzędowe sklepu: przekazuje do akcji informację, czy kliknięto z Shiftem (kliknięcia w górną część nie przenoszą przedmiotów). */
 public class SklepMenu extends RangiMenu {
@@ -23,11 +23,11 @@ public class SklepMenu extends RangiMenu {
 	}
 
 	@Override
-	public void clicked(int slotId, int button, ClickType clickType, Player player) {
+	public void clicked(int slotId, int button, ContainerInput clickType, Player player) {
 		if (slotId >= 0 && slotId < box.getContainerSize()
-				&& (clickType == ClickType.PICKUP || clickType == ClickType.QUICK_MOVE)) {
+				&& (clickType == ContainerInput.PICKUP || clickType == ContainerInput.QUICK_MOVE)) {
 			if (player instanceof ServerPlayer sp && !box.getItem(slotId).isEmpty()) {
-				klik.klik(sp, slotId, clickType == ClickType.QUICK_MOVE);
+				klik.klik(sp, slotId, clickType == ContainerInput.QUICK_MOVE);
 			}
 			return;
 		}
