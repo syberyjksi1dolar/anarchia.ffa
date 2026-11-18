@@ -120,7 +120,7 @@ public final class StatsSidebar {
 		lines[2] = line("Serca: ", num((int) (p.getMaxHealth() / 2.0F), ChatFormatting.RED));
 		lines[3] = line("Zabójstwa: ", num(s.kills, ChatFormatting.GREEN));
 		lines[4] = line("Śmierci: ", num(s.deaths, ChatFormatting.DARK_RED));
-		lines[5] = line("Pieniądze: ", num(0, ChatFormatting.GOLD)); // na razie bez ekonomii
+		lines[5] = line("Pieniądze: ", num(Pieniadze.format(p), ChatFormatting.GOLD));
 		p.connection.send(new ClientboundSetObjectivePacket(OBJ, 2));
 		for (int i = 0; i < LINES; i++) {
 			p.connection.send(new ClientboundSetScorePacket("l" + i, OBJ_NAME, LINES - i, Optional.of(lines[i]),

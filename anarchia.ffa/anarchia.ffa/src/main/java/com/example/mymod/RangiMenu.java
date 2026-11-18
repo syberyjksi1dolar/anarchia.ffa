@@ -39,20 +39,37 @@ public class RangiMenu extends AbstractContainerMenu {
 	}
 
 	public RangiMenu(int id, Inventory inventory, SimpleContainer box, BiConsumer<ServerPlayer, Integer> onClick) {
-		super(MenuType.GENERIC_9x3, id);
+		this(id, inventory, box, 3, onClick);
+	}
+
+	private static MenuType<?> typeFor(int rows) {
+		return switch (rows) {
+			case 1 -> MenuType.GENERIC_9x1;
+			case 2 -> MenuType.GENERIC_9x2;
+			case 4 -> MenuType.GENERIC_9x4;
+			case 5 -> MenuType.GENERIC_9x5;
+			case 6 -> MenuType.GENERIC_9x6;
+			default -> MenuType.GENERIC_9x3;
+		};
+	}
+
+	/** Menu o podanej liczbie rzędów (1-6). */
+	public RangiMenu(int id, Inventory inventory, SimpleContainer box, int rows, BiConsumer<ServerPlayer, Integer> onClick) {
+		super(typeFor(rows), id);
 		this.onClick = onClick;
-		for (int row = 0; row < 3; row++) {
+		int shift = (rows - 3) * 18;
+		for (int row = 0; row < rows; row++) {
 			for (int col = 0; col < 9; col++) {
 				this.addSlot(new ClickSlot(box, col + row * 9, 8 + col * 18, 18 + row * 18));
 			}
 		}
 		for (int row = 0; row < 3; row++) {
 			for (int col = 0; col < 9; col++) {
-				this.addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, 84 + row * 18));
+				this.addSlot(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, 84 + shift + row * 18));
 			}
 		}
 		for (int col = 0; col < 9; col++) {
-			this.addSlot(new Slot(inventory, col, 8 + col * 18, 142));
+			this.addSlot(new Slot(inventory, col, 8 + col * 18, 142 + shift));
 		}
 	}
 
