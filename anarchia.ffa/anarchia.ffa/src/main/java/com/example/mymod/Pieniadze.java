@@ -50,6 +50,36 @@ public final class Pieniadze {
 		return true;
 	}
 
+	/** Wypłaca kilku odbiorcom naraz (klucze to UUID jako tekst). Jeden zapis; gdy się nie uda, nic się nie zmienia. */
+	public static boolean addAll(Map<String, Long> payouts) {
+		Map<String, Long> backup = new HashMap<>();
+		for (String k : payouts.keySet()) {
+			Long v = DATA.get(k);
+			if (v != null) {
+				backup.put(k, v);
+			}
+		}
+		for (Map.Entry<String, Long> e : payouts.entrySet()) {
+			DATA.merge(e.getKey(), e.getValue(), Long::sum);
+		}
+		if (!save()) {
+			for (String k : payouts.keySet()) {
+				if (backup.containsKey(k)) {
+					DATA.put(k, backup.get(k));
+				} else {
+					DATA.remove(k);
+				}
+			}
+			return false;
+		}
+		return true;
+	}
+
+	/** Np. 500 $ zamiast 500,00$ dla pełnych kwot. */
+	public static String formatShort(long cents) {
+		return cents % 100 == 0 ? (cents / 100) + "$" : format(cents);
+	}
+
 	/** Np. 1240 groszy = "12,40$". */
 	public static String format(long cents) {
 		return String.format(Locale.ROOT, "%d,%02d$", cents / 100, Math.abs(cents % 100));

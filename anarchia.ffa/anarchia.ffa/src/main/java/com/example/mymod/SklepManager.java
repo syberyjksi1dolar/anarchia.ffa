@@ -174,10 +174,12 @@ public final class SklepManager {
 			return;
 		}
 		String dzial;
-		if (index == SLOT_SERCE) {
+		if (index == SLOT_RYNEK) {
+			p.closeContainer();
+			Rynek.showOffers(p);
+			return;
+		} else if (index == SLOT_SERCE) {
 			dzial = "Sklep za serca";
-		} else if (index == SLOT_RYNEK) {
-			dzial = "Rynek";
 		} else {
 			return;
 		}
@@ -188,6 +190,7 @@ public final class SklepManager {
 	public static void initialize() {
 		Pieniadze.initialize();
 		Ceny.initialize();
+		Rynek.initialize();
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
 				dispatcher.register(Commands.literal("sklep").executes(ctx -> {
 					ServerPlayer p = ctx.getSource().getPlayer();

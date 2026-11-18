@@ -489,6 +489,17 @@ public final class RangiManager {
 		return null;
 	}
 
+	/** UUID (jako tekst) wszystkich graczy z rangą TWÓRCA, także tych offline. */
+	public static List<String> creatorIds() {
+		List<String> out = new ArrayList<>();
+		for (Map.Entry<String, Data> e : DATA.entrySet()) {
+			if (TWORCA.equals(e.getValue().rank)) {
+				out.add(e.getKey());
+			}
+		}
+		return out;
+	}
+
 	/** Odbiór rangi z przedmiotu: ustawia rangę i pokazuje na środku ekranu wszystkim napis. */
 	public static boolean claimRank(ServerPlayer p, String r) {
 		int tier = tierOf(r);
