@@ -136,7 +136,7 @@ public final class BotManager {
 			// po restarcie usuwamy manekiny botów zapisane w świecie
 			try {
 				AABB all = new AABB(-HALF - 64, -64, -HALF - 64, HALF + 64, 400, HALF + 64);
-				for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, all, e -> e.getTags().contains(TAG))) {
+				for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, all, BotManager::isBot)) {
 					m.discard();
 				}
 			} catch (Exception e) {
@@ -183,7 +183,7 @@ public final class BotManager {
 			}
 		}
 		AABB box = new AABB(x - 3, SPAWN_Y - 3, z - 3, x + 3, SPAWN_Y + 6, z + 3);
-		for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, box, e -> e.getTags().contains(TAG))) {
+		for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, box, BotManager::isBot)) {
 			if (r.nick.equals(m.getName().getString()) && !isTracked(m)) {
 				s.entity = m;
 				s.wait = 0;
@@ -192,6 +192,12 @@ public final class BotManager {
 				return;
 			}
 		}
+	}
+
+	private static boolean isBot(Mannequin m) {
+		String n = m.getName().getString();
+		for (Rec r : ROSTER) if (r.nick.equals(n)) return true;
+		return false;
 	}
 
 	private static boolean isTracked(Mannequin m) {
