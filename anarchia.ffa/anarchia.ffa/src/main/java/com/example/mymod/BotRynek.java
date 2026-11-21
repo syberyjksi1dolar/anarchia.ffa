@@ -29,6 +29,7 @@ final class BotRynek {
 	}
 
 	private static void sell(String nick) {
+		if (RNG.nextDouble() > 0.35) return; // wystawiają rzadziej
 		SimpleContainer inv = BotManager.inv(nick);
 		List<Integer> ok = new ArrayList<>();
 		for (int i = 0; i < inv.getContainerSize(); i++) {
@@ -36,7 +37,11 @@ final class BotRynek {
 			if (!s.isEmpty() && s.getComponentsPatch().isEmpty() && Ceny.price(s) >= 0) ok.add(i);
 		}
 		if (ok.isEmpty()) return;
-		int slot = ok.get(RNG.nextInt(ok.size()));
+		List<Integer> kit = new ArrayList<>();
+		for (int i : ok) {
+			if (BotManager.KIT_PATHS.contains(BuiltInRegistries.ITEM.getKey(inv.getItem(i).getItem()).getPath())) kit.add(i);
+		}
+		int slot = (!kit.isEmpty() && RNG.nextDouble() < 0.6) ? kit.get(RNG.nextInt(kit.size())) : ok.get(RNG.nextInt(ok.size()));
 		ItemStack st = inv.getItem(slot);
 		long ref = Ceny.price(st);
 		int cnt = 1 + RNG.nextInt(st.getCount());

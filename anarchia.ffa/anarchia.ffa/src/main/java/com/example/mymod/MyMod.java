@@ -65,6 +65,7 @@ public class MyMod implements ModInitializer {
 		AdminCommands.initialize();
 		Antylogout.initialize();
 		TpaManager.initialize();
+		StartGift.initialize();
 		SpawnManager.initialize();
 		ZlotyBilet.initialize();
 		KluczykManager.initialize();

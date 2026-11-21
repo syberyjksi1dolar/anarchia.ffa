@@ -48,7 +48,7 @@ public final class BotManager {
 	private BotManager() {}
 
 	public static final String TAG = "anarchia_bot";
-	public static final int COUNT = 40;
+	public static final int COUNT = 100;
 	public static final int HALF = 750;               // obszar 1500 x 1500 wokół 0,0
 	public static final double SPAWN_X = 0.5, SPAWN_Y = 100, SPAWN_Z = 0.5;
 	private static final String[] SKINS = {"steve", "alex", "ari", "efe", "kai", "makena", "noor", "sunny", "zuri"};
@@ -61,6 +61,12 @@ public final class BotManager {
 		String skin;
 		boolean funded;
 		boolean kit;
+		boolean event;
+	}
+
+	private static final class Mine {
+		double sx, sy, sz, x, y, z;
+		int phase, targetY, dir, steps, turns, tick;
 	}
 
 	private static final class Slot {
@@ -77,6 +83,8 @@ public final class BotManager {
 		boolean first = true;
 		int act;
 		String foe;
+		boolean retal;
+		Mine mine;
 		java.util.UUID foeP;
 		int fight;
 		int cd;
@@ -201,6 +209,19 @@ public final class BotManager {
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> saveInv());
 		ServerTickEvents.END_SERVER_TICK.register(BotManager::tick);
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
+			if (!(entity instanceof Mannequin m) || !isBot(m) || !(source.getEntity() instanceof ServerPlayer p)) return;
+			for (State s : STATES.values()) { // uderzony bot od razu oddaje
+				if (s.entity == m) {
+					s.foeP = p.getUUID();
+					s.foe = null;
+					s.fight = 1200;
+					s.retal = true;
+					s.cd = 0;
+					s.mine = null;
+				}
+			}
+		});
 		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof Mannequin m && isBot(m) && source.getEntity() instanceof ServerPlayer
 					&& entity.level() instanceof ServerLevel lv && RNG.nextDouble() < 0.03) {
@@ -216,25 +237,16 @@ public final class BotManager {
 			if (Files.exists(file())) {
 				Type t = new TypeToken<List<Rec>>() {}.getType();
 				List<Rec> l = GSON.fromJson(Files.readString(file(), StandardCharsets.UTF_8), t);
-				if (l != null && !l.isEmpty()) {
-					ROSTER.addAll(l);
-					return;
-				}
+				if (l != null) ROSTER.addAll(l);
 			}
 		} catch (Exception e) {
 			MyMod.LOGGER.warn("Nie udało się wczytać botów: {}", e.toString());
 		}
-		// rozkład dla 40 botów: 4 x poz.1, 6 x 2-3, 20 x 4-5, 1 x 6-7, 8 x 8-9, 1 x 10
-		List<Integer> levels = new ArrayList<>();
-		for (int i = 0; i < 4; i++) levels.add(1);
-		for (int i = 0; i < 6; i++) levels.add(2 + RNG.nextInt(2));
-		for (int i = 0; i < 20; i++) levels.add(4 + RNG.nextInt(2));
-		levels.add(6 + RNG.nextInt(2));
-		for (int i = 0; i < 8; i++) levels.add(8 + RNG.nextInt(2));
-		levels.add(10);
-		Collections.shuffle(levels, RNG);
+		// uzupełniamy do COUNT botów (istniejące zostają bez zmian); poziomy: ok. 10% poz.1, 15% 2-3, 50% 4-5, 2,5% 6-7, 20% 8-9, 2,5% 10
 		Set<String> used = new HashSet<>();
-		for (int i = 0; i < COUNT; i++) {
+		for (Rec r : ROSTER) used.add(r.nick);
+		boolean added = false;
+		while (ROSTER.size() < COUNT) {
 			Rec r = new Rec();
 			String n;
 			do {
@@ -243,11 +255,13 @@ public final class BotManager {
 				n = form == 0 ? p + (10 + RNG.nextInt(90)) : form == 1 ? p + (100 + RNG.nextInt(900)) : p + "_PL";
 			} while (!used.add(n));
 			r.nick = n;
-			r.level = levels.get(i);
+			int x = RNG.nextInt(40);
+			r.level = x < 4 ? 1 : x < 10 ? 2 + RNG.nextInt(2) : x < 30 ? 4 + RNG.nextInt(2) : x < 31 ? 6 + RNG.nextInt(2) : x < 39 ? 8 + RNG.nextInt(2) : 10;
 			r.skin = SKINS[RNG.nextInt(SKINS.length)];
 			ROSTER.add(r);
+			added = true;
 		}
-		save();
+		if (added) save();
 	}
 
 	private static void save() {
@@ -291,6 +305,7 @@ public final class BotManager {
 				s.entity = null;
 				s.foe = null;
 				s.foeP = null;
+				s.mine = null;
 				if (--s.respawnIn <= 0) {
 					spawn(server, level, r, s);
 					s.respawnIn = 100; // ponowna próba po 5 s, jeśli się nie udało
@@ -304,6 +319,7 @@ public final class BotManager {
 			if (t % 10 == 0) {
 				activity(level, r, s);
 				maybeStartFight(level, r, s);
+				maybeStartMine(level, r, s);
 			}
 		}
 		if (t % 10 == 0) drawBorder(level);
@@ -451,6 +467,12 @@ public final class BotManager {
 				giveKit(r);
 				ch = true;
 			}
+			if (!r.event) { // istniejące boty też dostają jedną eventówkę
+				r.event = true;
+				Item ev = Rynek.randomEventItem();
+				if (ev != null) inv(r.nick).addItem(new ItemStack(ev));
+				ch = true;
+			}
 			if (!r.funded) {
 				r.funded = true;
 				Pieniadze.addAll(Map.of("bot:" + r.nick, FUNDS_PER_LEVEL * r.level));
@@ -464,27 +486,66 @@ public final class BotManager {
 	}
 
 	/** Jednorazowy zestaw startowy zależny od poziomu (trafia do ekwipunku, bot może to sprzedać). */
+	/** Zestaw startowy bota (większy niż wcześniej); przy pierwszym pojawieniu dochodzi losowa eventówka. */
 	private static void giveKit(Rec r) {
 		SimpleContainer c = inv(r.nick);
 		int l = r.level;
-		c.addItem(new ItemStack(Items.BREAD, 6 + l * 2));
-		c.addItem(new ItemStack(Items.COBBLESTONE, 16 + l * 6));
-		c.addItem(new ItemStack(Items.COAL, 4 + l * 3));
-		c.addItem(new ItemStack(Items.OAK_LOG, l >= 5 ? 80 : 8 + l * 4));
-		c.addItem(new ItemStack(Items.APPLE, 2 + l));
-		if (l >= 2) c.addItem(new ItemStack(Items.IRON_INGOT, l * 2));
-		if (l >= 3) c.addItem(new ItemStack(Items.ARROW, l * 4));
-		if (l >= 4) {
-			c.addItem(new ItemStack(Items.WHEAT_SEEDS, 8));
-			c.addItem(new ItemStack(Items.WATER_BUCKET, 1));
+		c.addItem(new ItemStack(Items.BREAD, 10 + l * 3));
+		c.addItem(new ItemStack(Items.COOKED_BEEF, 4 + l * 2));
+		c.addItem(new ItemStack(Items.COBBLESTONE, 32 + l * 8));
+		c.addItem(new ItemStack(Items.COAL, 8 + l * 4));
+		c.addItem(new ItemStack(Items.OAK_LOG, l >= 3 ? 80 : 16 + l * 8));
+		c.addItem(new ItemStack(Items.OAK_PLANKS, 16 + l * 4));
+		c.addItem(new ItemStack(Items.APPLE, 3 + l));
+		c.addItem(new ItemStack(Items.TORCH, 16 + l * 2));
+		c.addItem(new ItemStack(Items.STICK, 8));
+		c.addItem(new ItemStack(Items.WHEAT_SEEDS, 8 + l));
+		c.addItem(new ItemStack(Items.WATER_BUCKET, 1));
+		c.addItem(new ItemStack(Items.BUCKET, 1));
+		if (l >= 2) {
+			c.addItem(new ItemStack(Items.IRON_INGOT, l * 3));
+			c.addItem(new ItemStack(Items.RAW_COPPER, l * 2));
+			c.addItem(new ItemStack(Items.REDSTONE, l * 2));
 		}
-		if (l >= 6) c.addItem(new ItemStack(Items.DIAMOND, l - 4));
-		if (l >= 8) c.addItem(new ItemStack(Items.EMERALD, l - 5));
-		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 2));
-		// starter pack: miecz i zbroja zależne od poziomu (prawdziwe przedmioty)
+		if (l >= 3) {
+			c.addItem(new ItemStack(Items.ARROW, l * 6));
+			c.addItem(new ItemStack(Items.GOLD_INGOT, l));
+			c.addItem(new ItemStack(Items.LAPIS_LAZULI, l * 2));
+			c.addItem(new ItemStack(Items.SNOWBALL, 8));
+		}
+		if (l >= 4) {
+			c.addItem(new ItemStack(Items.SHIELD, 1));
+			c.addItem(new ItemStack(Items.SLIME_BALL, l));
+			c.addItem(new ItemStack(Items.QUARTZ, l * 2));
+		}
+		if (l >= 6) {
+			c.addItem(new ItemStack(Items.DIAMOND, l - 3));
+			c.addItem(new ItemStack(Items.ENDER_PEARL, 2));
+			c.addItem(new ItemStack(Items.TNT, 3));
+		}
+		if (l >= 8) {
+			c.addItem(new ItemStack(Items.EMERALD, l - 4));
+			c.addItem(new ItemStack(Items.GOLDEN_CARROT, 8));
+		}
+		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 3));
+		// starter pack: miecz, zbroja i kilof zależne od poziomu (prawdziwe przedmioty)
 		c.addItem(new ItemStack(swordFor(l)));
+		c.addItem(new ItemStack(pickFor(l)));
 		for (Item a : armorFor(l)) c.addItem(new ItemStack(a));
+		if (!r.event) { // pierwszy raz: jedna losowa eventówka
+			r.event = true;
+			Item ev = Rynek.randomEventItem();
+			if (ev != null) c.addItem(new ItemStack(ev));
+		}
 	}
+
+	private static Item pickFor(int l) {
+		return l >= 10 ? Items.NETHERITE_PICKAXE : l >= 7 ? Items.DIAMOND_PICKAXE : l >= 4 ? Items.IRON_PICKAXE : l >= 2 ? Items.STONE_PICKAXE : Items.WOODEN_PICKAXE;
+	}
+
+	public static final java.util.Set<String> KIT_PATHS = java.util.Set.of("bread", "cooked_beef", "cobblestone", "coal", "apple",
+			"iron_ingot", "raw_copper", "redstone", "arrow", "gold_ingot", "lapis_lazuli", "snowball", "slime_ball", "quartz",
+			"diamond", "tnt", "emerald", "golden_apple", "water_bucket");
 
 	private static Item swordFor(int l) {
 		return l >= 10 ? Items.NETHERITE_SWORD : l >= 7 ? Items.DIAMOND_SWORD : l >= 4 ? Items.IRON_SWORD : l >= 2 ? Items.STONE_SWORD : Items.WOODEN_SWORD;
@@ -583,6 +644,99 @@ public final class BotManager {
 		return false;
 	}
 
+	private static final int[] DX = {1, 0, -1, 0};
+	private static final int[] DZ = {0, 1, 0, -1};
+
+	private static boolean isOre(BlockState st) {
+		return st.is(BlockTags.COAL_ORES) || st.is(BlockTags.IRON_ORES) || st.is(BlockTags.COPPER_ORES) || st.is(BlockTags.GOLD_ORES)
+				|| st.is(BlockTags.DIAMOND_ORES) || st.is(BlockTags.EMERALD_ORES) || st.is(BlockTags.LAPIS_ORES) || st.is(BlockTags.REDSTONE_ORES);
+	}
+
+	private static boolean breakable(ServerLevel level, BlockPos p) {
+		BlockState st = level.getBlockState(p);
+		return st.isAir() || (st.getDestroySpeed(level, p) >= 0 && !st.hasBlockEntity() && level.getFluidState(p).isEmpty());
+	}
+
+	/** Czasem bot z kilofem schodzi pod ziemię (szyb w dół, potem tunel), wykopuje rudy i wraca na powierzchnię. */
+	private static void maybeStartMine(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		if (s.mine != null || s.foe != null || s.foeP != null || BotBuilder.busy(r.nick) || RNG.nextInt(240) != 0) return;
+		double x = m.getX(), z = m.getZ();
+		if (Math.abs(x) < 40 && Math.abs(z) < 50) return;
+		if (!hasPickaxe(r.nick) || isWaterAt(level, x, z)) return;
+		Mine k = new Mine();
+		k.sx = k.x = x;
+		k.sz = k.z = z;
+		k.sy = k.y = m.getY();
+		k.targetY = (int) Math.max(-48, k.sy - (20 + RNG.nextInt(35)));
+		k.dir = RNG.nextInt(4);
+		s.mine = k;
+	}
+
+	private static boolean hasPickaxe(String nick) {
+		SimpleContainer c = inv(nick);
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			if (c.getItem(i).is(net.minecraft.tags.ItemTags.PICKAXES)) return true;
+		}
+		return false;
+	}
+
+	private static void endMine(Mannequin m, State s) {
+		Mine k = s.mine;
+		s.mine = null;
+		s.wait = 0;
+		if (k != null) {
+			m.setPos(k.sx, k.sy, k.sz); // wracają na powierzchnię w to samo miejsce
+			s.tx = k.sx;
+			s.tz = k.sz;
+		}
+	}
+
+	private static void mineStep(ServerLevel level, Rec r, State s) {
+		Mine k = s.mine;
+		Mannequin m = s.entity;
+		if (++k.tick % 10 != 0) {
+			m.setPos(k.x, k.y, k.z);
+			return;
+		}
+		if (k.phase == 0) { // szyb w dół
+			BlockPos below = BlockPos.containing(k.x, k.y - 1, k.z);
+			if (!breakable(level, below) || !breakable(level, below.below()) || !level.getFluidState(below.below()).isEmpty()) {
+				k.phase = 1; // trafił w coś, czego nie rusza: kopie tunel w tym miejscu
+			} else {
+				level.destroyBlock(below, true);
+				k.y -= 1;
+				if (k.y <= k.targetY) k.phase = 1;
+			}
+		} else if (k.phase == 1) { // tunel 1x2
+			int dx = DX[k.dir], dz = DZ[k.dir];
+			BlockPos f1 = BlockPos.containing(k.x + dx, k.y, k.z + dz);
+			BlockPos f2 = f1.above();
+			if (!breakable(level, f1) || !breakable(level, f2) || !breakable(level, f1.below()) || !level.getFluidState(f1.below()).isEmpty()) {
+				k.dir = (k.dir + 1) % 4;
+				if (++k.turns > 8) k.phase = 2;
+			} else {
+				level.destroyBlock(f1, true);
+				level.destroyBlock(f2, true);
+				k.x += dx;
+				k.z += dz;
+				for (int ox = -1; ox <= 1; ox++) {
+					for (int oy = -1; oy <= 2; oy++) {
+						for (int oz = -1; oz <= 1; oz++) {
+							BlockPos o = BlockPos.containing(k.x + ox, k.y + oy, k.z + oz);
+							if (isOre(level.getBlockState(o))) level.destroyBlock(o, true);
+						}
+					}
+				}
+				if (++k.steps >= 70) k.phase = 2;
+			}
+		} else {
+			endMine(m, s);
+			return;
+		}
+		m.setPos(k.x, k.y, k.z);
+	}
+
 	private static boolean inSpawnArea(double x, double z) {
 		return x >= -14 && x <= 15 && z >= -14 && z <= 15;
 	}
@@ -595,8 +749,9 @@ public final class BotManager {
 		if (vsPlayer) {
 			f = level.getServer().getPlayerList().getPlayer(s.foeP);
 			if (f == null || f.level() != level || !f.isAlive() || ((ServerPlayer) f).isCreative() || ((ServerPlayer) f).isSpectator()
-					|| --s.fight <= 0 || inSpawnArea(f.getX(), f.getZ()) || f.distanceToSqr(m) > 30 * 30) {
+					|| --s.fight <= 0 || (!s.retal && inSpawnArea(f.getX(), f.getZ())) || f.distanceToSqr(m) > (s.retal ? 60 * 60 : 30 * 30)) {
 				s.foeP = null;
+				s.retal = false;
 				return false;
 			}
 		} else {
@@ -608,22 +763,22 @@ public final class BotManager {
 				return false;
 			}
 		}
-		if (inSpawnArea(m.getX(), m.getZ()) && vsPlayer) {
+		if (inSpawnArea(m.getX(), m.getZ()) && vsPlayer && !s.retal) {
 			s.foeP = null;
 			return false;
 		}
 		double dx = f.getX() - m.getX(), dz = f.getZ() - m.getZ();
 		double d = Math.sqrt(dx * dx + dz * dz);
 		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-		if (d > 2.0) {
-			double step = Math.min(0.12 + 0.015 * r.level, d - 1.8);
+		if (d > 4.0) {
+			double step = Math.min(0.12 + 0.015 * r.level, d - 3.5);
 			double nx = m.getX() + dx / d * step, nz = m.getZ() + dz / d * step;
 			if (level.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) && !isWaterAt(level, nx, nz)) {
 				int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(nx), (int) Math.floor(nz));
 				m.setPos(nx, gy, nz);
 			}
 		} else if (--s.cd <= 0) {
-			s.cd = 12;
+			s.cd = 20; // zasięg 4 bloki, jedno uderzenie na sekundę
 			float dmg = vsPlayer ? (float) (1.0 + r.level * 0.35) : (float) (2.0 + r.level * 0.8);
 			f.hurtServer(level, level.damageSources().mobAttack(m), dmg);
 			if (vsPlayer) Antylogout.tagPlayer((ServerPlayer) f);
@@ -676,6 +831,7 @@ public final class BotManager {
 	private static void moveBot(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
 		if ((s.foe != null || s.foeP != null) && fightStep(level, r, s)) return;
+		if (s.mine != null) { mineStep(level, r, s); return; }
 		if (BotBuilder.busy(r.nick)) return; // buduje, stoi w miejscu
 		if (s.wait > 0) { s.wait--; return; }
 		double dx = s.tx - m.getX(), dz = s.tz - m.getZ();

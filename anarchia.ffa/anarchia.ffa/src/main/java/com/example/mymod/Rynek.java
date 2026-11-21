@@ -262,6 +262,18 @@ public final class Rynek {
 		return null;
 	}
 
+	/** Losowa eventówka (stała albo zużywalna); null, gdy żadna nie istnieje w grze. */
+	static Item randomEventItem() {
+		List<String> all = new ArrayList<>(EVENT_STALE);
+		all.addAll(EVENT_ZUZYWALNE);
+		Collections.shuffle(all, RNG);
+		for (String p : all) {
+			Item it = itemOf(p);
+			if (it != null) return it;
+		}
+		return null;
+	}
+
 	private static String nameOf(String path) {
 		Item it = itemOf(path);
 		return it == null ? path : new ItemStack(it).getHoverName().getString();
