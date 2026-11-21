@@ -157,6 +157,21 @@ public final class RangiManager {
 		return Component.literal(RANKS[lvl - 1].toUpperCase(Locale.ROOT)).withStyle(Style.EMPTY.withColor(RGB[lvl - 1]).withBold(true));
 	}
 
+	/** Administrator albo TWÓRCA (np. dla /inkognito). */
+	public static boolean isStaff(ServerPlayer p) {
+		return isAdminPlayer(p) || isCreator(p);
+	}
+
+	/** Odświeża drużynę/prefiks rangi gracza (np. po zmianie inkognito). */
+	public static void refreshTeam(ServerPlayer p) {
+		applyTeam(p.level().getServer(), p);
+	}
+
+	/** Czy gracz jest administratorem (lista z anarchia_ffa_admini.txt). */
+	public static boolean isAdminPlayer(ServerPlayer p) {
+		return ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));
+	}
+
 	private static boolean isAdmin(CommandSourceStack s) {
 		ServerPlayer p = s.getPlayer();
 		return p == null || ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));
@@ -167,6 +182,12 @@ public final class RangiManager {
 		var sb = server.getScoreboard();
 		String name = p.getScoreboardName();
 		PlayerTeam cur = sb.getPlayersTeam(name);
+		if (Inkognito.isOn(p)) {
+			if (cur != null && cur.getName().startsWith("rg_")) {
+				sb.removePlayerFromTeam(name, cur);
+			}
+			return;
+		}
 		if (cur != null && !cur.getName().startsWith("rg_")) {
 			return; // gracz jest w cudzej drużynie, nie ruszamy
 		}
@@ -587,6 +608,30 @@ public final class RangiManager {
 			d.register(Commands.literal("klucze" + RANKS[i]).executes(ctx -> keys(ctx.getSource(), tier)));
 		}
 		d.register(Commands.literal("ranga").executes(ctx -> info(ctx.getSource())));
+		d.register(Commands.literal("admin")
+				.then(Commands.argument("gracz", StringArgumentType.word())
+						.executes(ctx -> {
+							CommandSourceStack s = ctx.getSource();
+							if (!isAdmin(s)) {
+								s.sendFailure(Component.literal("Tylko administrator może użyć /admin."));
+								return 0;
+							}
+							String nick = StringArgumentType.getString(ctx, "gracz");
+							String low = nick.toLowerCase(Locale.ROOT);
+							if (ADMINS.contains(low)) {
+								s.sendFailure(Component.literal(nick + " jest już administratorem."));
+								return 0;
+							}
+							ADMINS.add(low);
+							try {
+								Files.writeString(adminFile(), nick + "\n", StandardCharsets.UTF_8,
+										java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+							} catch (IOException e) {
+								MyMod.LOGGER.warn("Nie zapisano admina: {}", e.toString());
+							}
+							s.sendSuccess(() -> Component.literal(nick + " jest teraz administratorem."), true);
+							return 1;
+						})));
 		d.register(Commands.literal("dajrange")
 				.then(Commands.argument("gracz", StringArgumentType.word())
 						.then(Commands.argument("ranga", StringArgumentType.word())
@@ -611,6 +656,9 @@ public final class RangiManager {
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
 			if (Rynek.captureChat(sender, message.decoratedContent().getString())) {
 				return false;
+			}
+			if (Inkognito.isOn(sender)) {
+				return true;
 			}
 			int lvl = level(sender);
 			boolean creator = lvl == 0 && isCreator(sender);

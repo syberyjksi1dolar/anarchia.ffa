@@ -164,7 +164,107 @@ public final class Rynek {
 		}
 	}
 
-	private static Item itemOf(String path) {
+
+	// ===== API dla botów-graczy (handel botów między sobą) =====
+
+	static List<Offer> snapshot() {
+		return new ArrayList<>(OFFERS);
+	}
+
+	static boolean botList(String nick, String item, int count, long price) {
+		String id = "bot:" + nick;
+		long mine = 0;
+		for (Offer x : OFFERS) {
+			if (id.equals(x.seller)) {
+				mine++;
+			}
+		}
+		if (mine >= 5 || count < 1 || price < 1) {
+			return false;
+		}
+		Offer o = new Offer();
+		o.id = nextId++;
+		o.seller = id;
+		o.sellerName = nick;
+		o.item = item;
+		o.count = count;
+		o.price = price;
+		o.created = System.currentTimeMillis();
+		OFFERS.add(o);
+		if (!save()) {
+			OFFERS.remove(o);
+			return false;
+		}
+		return true;
+	}
+
+	/** Zakup oferty przez bota za pieniądze bota (saldo w Pieniadze pod kluczem bot:nick). */
+	static boolean botBuy(MinecraftServer server, Offer o, String buyerNick) {
+		String buyerId = "bot:" + buyerNick;
+		if (!OFFERS.contains(o) || expired(o) || buyerId.equals(o.seller)) {
+			return false;
+		}
+		long total = o.price;
+		if (Pieniadze.getById(buyerId) < total) {
+			return false;
+		}
+		Map<String, Long> payouts = new LinkedHashMap<>();
+		long commissions = 0;
+		long admin = total * 3 / 100;
+		long tworca = total / 100;
+		for (String id : operatorIds()) {
+			payouts.merge(id, admin, Long::sum);
+			commissions += admin;
+		}
+		for (String id : RangiManager.creatorIds()) {
+			payouts.merge(id.toLowerCase(Locale.ROOT), tworca, Long::sum);
+			commissions += tworca;
+		}
+		if (commissions > total) {
+			double k = (double) total / (double) commissions;
+			commissions = 0;
+			for (Map.Entry<String, Long> e : payouts.entrySet()) {
+				e.setValue((long) Math.floor(e.getValue() * k));
+				commissions += e.getValue();
+			}
+		}
+		payouts.merge(o.seller, total - commissions, Long::sum);
+		payouts.merge(buyerId, -total, Long::sum);
+		OFFERS.remove(o);
+		if (!save()) {
+			OFFERS.add(o);
+			return false;
+		}
+		if (!Pieniadze.addAll(payouts)) {
+			OFFERS.add(o);
+			save();
+			return false;
+		}
+		BotManager.addItem(buyerNick, o.item, o.count);
+		return true;
+	}
+
+	/** Wygasłe oferty botów schodzą z rynku; zwracamy je, żeby przedmioty wróciły do sprzedawcy. */
+	static List<Offer> removeExpiredBotOffers() {
+		List<Offer> out = new ArrayList<>();
+		for (Offer o : new ArrayList<>(OFFERS)) {
+			if (o.seller != null && o.seller.startsWith("bot:") && expired(o)) {
+				OFFERS.remove(o);
+				out.add(o);
+			}
+		}
+		if (!out.isEmpty() && !save()) {
+			OFFERS.addAll(out);
+			return new ArrayList<>();
+		}
+		return out;
+	}
+
+	static Item itemOf_(String path) {
+		return itemOf(path);
+	}
+
+	static Item itemOf(String path) {
 		for (Item item : BuiltInRegistries.ITEM) {
 			if (BuiltInRegistries.ITEM.getKey(item).getPath().equals(path)) {
 				return item;

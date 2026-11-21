@@ -34,6 +34,11 @@ public final class Pieniadze {
 		return DATA.getOrDefault(p.getUUID().toString(), 0L);
 	}
 
+	/** Saldo po identyfikatorze (UUID gracza albo bot:nick). */
+	public static long getById(String id) {
+		return DATA.getOrDefault(id, 0L);
+	}
+
 	/** Dodaje pieniądze i zapisuje plik. Zwraca false, gdy zapis się nie udał (wtedy nic nie zmieniamy). */
 	public static boolean add(ServerPlayer p, long cents) {
 		String key = p.getUUID().toString();

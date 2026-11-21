@@ -111,6 +111,9 @@ public class ModItems {
 	public static final Item CIEPLE_MLEKO = register("cieple_mleko", CieploMlekoItem::new,
 			new Item.Properties().stacksTo(1));
 
+	public static final Item ZLOTY_BILET = register("zloty_bilet", ZlotyBiletItem::new,
+			new Item.Properties().stacksTo(1));
+
 	public static final Item LIZAK = register("lizak", Item::new, new Item.Properties().stacksTo(1));
 
 	// ===== Eventówki 30-46 =====

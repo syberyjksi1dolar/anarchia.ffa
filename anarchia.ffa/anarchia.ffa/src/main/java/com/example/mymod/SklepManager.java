@@ -154,6 +154,11 @@ public final class SklepManager {
 		return s;
 	}
 
+	/** Główne menu /sklep, otwierane też przez NPC sklepu. */
+	public static void openMain(ServerPlayer p) {
+		open(p);
+	}
+
 	private static void open(ServerPlayer p) {
 		SimpleContainer box = new SimpleContainer(27);
 		box.setItem(SLOT_SERCE, icon(ModItems.SERCE_ZYCIA, "Sklep za serca", ChatFormatting.RED, "Kliknij, aby otworzyć."));

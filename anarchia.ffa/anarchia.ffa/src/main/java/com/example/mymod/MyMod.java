@@ -61,6 +61,12 @@ public class MyMod implements ModInitializer {
 		SilaczHandler.initialize();
 		DolarHandler.initialize();
 		BotManager.initialize();
+		Inkognito.initialize();
+		AdminCommands.initialize();
+		Antylogout.initialize();
+		SpawnManager.initialize();
+		ZlotyBilet.initialize();
+		KluczykManager.initialize();
 		WalentynkiHandler.initialize();
 		MimHandler.initialize();
 		PiratHandler.initialize();
