@@ -72,7 +72,8 @@ final class BotBuilder {
 		int bx = (int) Math.floor(m.getX()), bz = (int) Math.floor(m.getZ());
 		if (j == null) {
 			if (Math.abs(bx) < 40 && Math.abs(bz) < 50) return false; // nie przy spawnie, rynku i stawie
-			if (RNG.nextInt(4) != 0) return false;
+			if (BotManager.isGuard(nick)) return false; // strażnik nie buduje
+			if (RNG.nextInt(BotManager.isBuilder(nick) ? 2 : 4) != 0) return false;
 			int gy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
 			BlockPos o = new BlockPos(bx + 3, gy, bz + 3);
 			List<Integer> kinds = new ArrayList<>();
