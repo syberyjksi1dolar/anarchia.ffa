@@ -157,6 +157,26 @@ public final class RangiManager {
 		return Component.literal(RANKS[lvl - 1].toUpperCase(Locale.ROOT)).withStyle(Style.EMPTY.withColor(RGB[lvl - 1]).withBold(true));
 	}
 
+	/** Administrator albo TWÓRCA (np. dla /inkognito). */
+	public static boolean isStaff(ServerPlayer p) {
+		return isAdminPlayer(p) || isCreator(p);
+	}
+
+	/** Odświeża drużynę/prefiks rangi gracza (np. po zmianie inkognito). */
+	public static void refreshTeam(ServerPlayer p) {
+		applyTeam(p.level().getServer(), p);
+	}
+
+	/** Czy gracz jest administratorem (lista z anarchia_ffa_admini.txt). */
+	public static boolean isAdminPlayer(ServerPlayer p) {
+		return ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));
+	}
+
+	/** Czy nick należy do administratora (np. do podpisu sprzedawcy na rynku). */
+	public static boolean isAdminName(String nick) {
+		return nick != null && ADMINS.contains(nick.toLowerCase(Locale.ROOT));
+	}
+
 	private static boolean isAdmin(CommandSourceStack s) {
 		ServerPlayer p = s.getPlayer();
 		return p == null || ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));
@@ -167,6 +187,12 @@ public final class RangiManager {
 		var sb = server.getScoreboard();
 		String name = p.getScoreboardName();
 		PlayerTeam cur = sb.getPlayersTeam(name);
+		if (Inkognito.isOn(p)) {
+			if (cur != null && cur.getName().startsWith("rg_")) {
+				sb.removePlayerFromTeam(name, cur);
+			}
+			return;
+		}
 		if (cur != null && !cur.getName().startsWith("rg_")) {
 			return; // gracz jest w cudzej drużynie, nie ruszamy
 		}
@@ -489,44 +515,40 @@ public final class RangiManager {
 		return null;
 	}
 
-
-	/**
-	 * Aktywacja rangi z przedmiotu. Wywoływane wyłącznie po stronie serwera
-	 * przez RangaItem po kliknięciu PPM.
-	 */
-	public static boolean activateFromItem(ServerPlayer player, String rank) {
-		String r = rank.toLowerCase(Locale.ROOT).replace('ó', 'o');
-		boolean valid = r.equals(TWORCA);
-		for (String s : RANKS) {
-			valid |= s.equals(r);
-		}
-		if (!valid) {
-			player.sendSystemMessage(Component.literal("Ten przedmiot nie zawiera poprawnej rangi."));
-			return false;
-		}
-
-		Data playerData = data(player);
-		if (r.equals(playerData.rank)) {
-			player.sendSystemMessage(Component.literal("Masz już aktywną rangę " + r.toUpperCase(Locale.ROOT) + "."));
-			return false;
-		}
-
-		playerData.rank = r;
-		save();
-		applyTeam(player.getServer(), player);
-
-		Component rankLabel = r.equals(TWORCA) ? creatorName() : rankName(rankLevel(r));
-		player.sendSystemMessage(Component.literal("Pomyślnie aktywowano rangę ").append(rankLabel).append(Component.literal("!")));
-		return true;
-	}
-
-	private static int rankLevel(String rank) {
-		for (int i = 0; i < RANKS.length; i++) {
-			if (RANKS[i].equals(rank)) {
-				return i + 1;
+	/** UUID (jako tekst) wszystkich graczy z rangą TWÓRCA, także tych offline. */
+	public static List<String> creatorIds() {
+		List<String> out = new ArrayList<>();
+		for (Map.Entry<String, Data> e : DATA.entrySet()) {
+			if (TWORCA.equals(e.getValue().rank)) {
+				out.add(e.getKey());
 			}
 		}
-		return 0;
+		return out;
+	}
+
+	/** Odbiór rangi z przedmiotu: ustawia rangę i pokazuje na środku ekranu wszystkim napis. */
+	public static boolean claimRank(ServerPlayer p, String r) {
+		int tier = tierOf(r);
+		if (tier < 0) {
+			return false;
+		}
+		if (r.equals(data(p).rank)) {
+			p.sendSystemMessage(Component.literal("Masz już tę rangę."), true);
+			return false;
+		}
+		net.minecraft.server.MinecraftServer server = p.level().getServer();
+		data(p).rank = r;
+		save();
+		applyTeam(server, p);
+		Component title = Component.literal("Gracz ").withStyle(ChatFormatting.WHITE)
+				.append(Component.literal(p.getName().getString()).withStyle(ChatFormatting.YELLOW))
+				.append(Component.literal(" odebrał rangę ").withStyle(ChatFormatting.WHITE))
+				.append(label(tier));
+		for (ServerPlayer o : server.getPlayerList().getPlayers()) {
+			o.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(10, 70, 20));
+			o.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(title));
+		}
+		return true;
 	}
 
 	private static int setRank(CommandSourceStack src, String playerName, String rank) {
@@ -591,6 +613,30 @@ public final class RangiManager {
 			d.register(Commands.literal("klucze" + RANKS[i]).executes(ctx -> keys(ctx.getSource(), tier)));
 		}
 		d.register(Commands.literal("ranga").executes(ctx -> info(ctx.getSource())));
+		d.register(Commands.literal("admin")
+				.then(Commands.argument("gracz", StringArgumentType.word())
+						.executes(ctx -> {
+							CommandSourceStack s = ctx.getSource();
+							if (!isAdmin(s)) {
+								s.sendFailure(Component.literal("Tylko administrator może użyć /admin."));
+								return 0;
+							}
+							String nick = StringArgumentType.getString(ctx, "gracz");
+							String low = nick.toLowerCase(Locale.ROOT);
+							if (ADMINS.contains(low)) {
+								s.sendFailure(Component.literal(nick + " jest już administratorem."));
+								return 0;
+							}
+							ADMINS.add(low);
+							try {
+								Files.writeString(adminFile(), nick + "\n", StandardCharsets.UTF_8,
+										java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+							} catch (IOException e) {
+								MyMod.LOGGER.warn("Nie zapisano admina: {}", e.toString());
+							}
+							s.sendSuccess(() -> Component.literal(nick + " jest teraz administratorem."), true);
+							return 1;
+						})));
 		d.register(Commands.literal("dajrange")
 				.then(Commands.argument("gracz", StringArgumentType.word())
 						.then(Commands.argument("ranga", StringArgumentType.word())
@@ -613,6 +659,12 @@ public final class RangiManager {
 
 		// Czat: [RANGA] Nick: wiadomość (tylko gracze z rangą; reszta jak w grze).
 		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
+			if (Rynek.captureChat(sender, message.decoratedContent().getString())) {
+				return false;
+			}
+			if (Inkognito.isOn(sender)) {
+				return true;
+			}
 			int lvl = level(sender);
 			boolean creator = lvl == 0 && isCreator(sender);
 			if (lvl == 0 && !creator) {
