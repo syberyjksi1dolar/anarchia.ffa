@@ -65,6 +65,8 @@ public final class BotManager {
 		String clan;
 		String role;
 		String buddy;
+		boolean hasHome;
+		double hx, hz;
 		String partner; // UUID gracza, z którym bot zawarł sojusz
 	}
 
@@ -103,6 +105,8 @@ public final class BotManager {
 	private static final Map<String, State> STATES = new HashMap<>();
 	private static boolean cleaned;
 	private static MinecraftServer SRV;
+	/** Co widz widział: gracz -> (scoreboardName bota -> "klan|kolor"). */
+	private static final Map<java.util.UUID, Map<String, String>> SEEN = new HashMap<>();
 	private static final Map<java.util.UUID, int[]> CROUCH = new HashMap<>(); // {liczba, tick pierwszego, był w dole, cooldown do}
 	/** Miejsce pojawienia się nowo stworzonego bota (tam, gdzie stał admin). */
 	private static final Map<String, double[]> PENDING = new HashMap<>();
@@ -227,6 +231,8 @@ public final class BotManager {
 			loadInv();
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> saveInv());
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((h, snd, srv) -> SEEN.remove(h.getPlayer().getUUID()));
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((h, srv) -> SEEN.remove(h.getPlayer().getUUID()));
 		ServerTickEvents.END_SERVER_TICK.register(BotManager::tick);
 		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
 			if (!(entity instanceof Mannequin m) || !isBot(m) || !(source.getEntity() instanceof ServerPlayer p)) return;
@@ -369,6 +375,7 @@ public final class BotManager {
 	private static void tick(MinecraftServer server) {
 		SRV = server;
 		crouchTick(server);
+		if (server.getTickCount() % 20 == 7) allianceTags(server);
 		ServerLevel level = server.overworld();
 		if (level == null) return;
 		if (!cleaned) {
@@ -437,11 +444,15 @@ public final class BotManager {
 		if (pend != null) {
 			x = pend[0];
 			z = pend[2];
+		} else if (r.hasHome) { // po śmierci wraca tam, gdzie pojawił się po raz pierwszy
+			x = r.hx;
+			z = r.hz;
 		} else if (isWaterAt(level, x, z)) { // nie pojawiamy się na wodzie (boty nie umieją pływać)
 			x = SPAWN_X + RNG.nextInt(7) - 3;
 			z = SPAWN_Z + RNG.nextInt(7) - 3;
 		}
-		final double sy = pend != null ? pend[1] : Math.max(SPAWN_Y, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z)));
+		int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z));
+		final double sy = pend != null ? pend[1] : (ground > 5 ? ground : SPAWN_Y); // zawsze na ziemi, nie w powietrzu
 		String base = "summon minecraft:mannequin " + x + " " + sy + " " + z
 				+ " {CustomName:\"" + r.nick + "\",CustomNameVisible:1b,Tags:[\"" + TAG + "\"],hide_description:1b,";
 		boolean stock = false;
@@ -464,6 +475,12 @@ public final class BotManager {
 		for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, box, BotManager::isBot)) {
 			if (r.nick.equals(m.getName().getString()) && !isTracked(m)) {
 				s.entity = m;
+				if (!r.hasHome) {
+					r.hasHome = true;
+					r.hx = m.getX();
+					r.hz = m.getZ();
+					save();
+				}
 				if (!r.kit) {
 					r.kit = true;
 					giveKit(r);
@@ -485,7 +502,6 @@ public final class BotManager {
 	}
 
 	private static void dropAll(ServerLevel level, Rec r, State s) {
-		r.kit = false; // po śmierci bot dostaje nowy starter pack przy kolejnym pojawieniu się
 		Mannequin dead = s.entity;
 		if (dead != null) {
 			net.minecraft.world.entity.EquipmentSlot[] all = {net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.entity.EquipmentSlot.HEAD,
@@ -870,14 +886,58 @@ public final class BotManager {
 			}
 			Rec r = recOf(best);
 			if (RNG.nextDouble() < 0.25) {
+				String pc = playerClan(pid);
+				r.clan = pc != null ? pc : newClanName();
 				r.partner = pid;
 				r.role = null;
 				r.buddy = null;
+				State bst = STATES.get(best);
+				if (bst != null) { // koniec dotychczasowej walki z tym graczem
+					bst.foeP = null;
+					bst.foe = null;
+					bst.retal = false;
+					bst.fight = 0;
+				}
 				save();
 				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(p.getName().getString() + " zawarł sojusz z botem "
 						+ best + "!").withStyle(net.minecraft.ChatFormatting.AQUA), false);
 			} else {
 				p.sendSystemMessage(net.minecraft.network.chat.Component.literal(best + " nie chce sojuszu. Spróbuj ponownie za chwilę.").withStyle(net.minecraft.ChatFormatting.GRAY));
+			}
+		}
+	}
+
+	/** Klan (sojusz) gracza: klan botów, z którymi jest sprzymierzony; null, gdy nie ma. */
+	private static String playerClan(String uuid) {
+		for (Rec r : ROSTER) if (uuid.equals(r.partner) && r.clan != null) return r.clan;
+		return null;
+	}
+
+	/** Obok nicku bota z sojuszem pokazuje [KLAN]: zielony dla członków tego samego sojuszu, niebieski dla pozostałych (osobno dla każdego gracza). */
+	private static void allianceTags(MinecraftServer server) {
+		for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
+			Map<String, String> seen = SEEN.computeIfAbsent(viewer.getUUID(), k -> new HashMap<>());
+			String mine = playerClan(viewer.getUUID().toString());
+			for (Map.Entry<String, State> e : STATES.entrySet()) {
+				Rec r = recOf(e.getKey());
+				Mannequin m = e.getValue().entity;
+				if (r == null || m == null || m.isRemoved() || r.clan == null) continue;
+				boolean same = mine != null && mine.equals(r.clan);
+				String sn = m.getScoreboardName();
+				String sig = r.clan + "|" + (same ? "g" : "b");
+				if (sig.equals(seen.get(sn))) continue;
+				seen.put(sn, sig);
+				try {
+					net.minecraft.ChatFormatting col = same ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA;
+					net.minecraft.world.scores.PlayerTeam team = new net.minecraft.world.scores.PlayerTeam(server.getScoreboard(), "al_" + r.clan + (same ? "_g" : "_b"));
+					team.setColor(col);
+					team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[" + r.clan + "] ").withStyle(col));
+					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, true));
+					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createPlayerPacket(team, sn,
+							net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.Operation.ADD));
+				} catch (Exception ex) {
+					MyMod.LOGGER.warn("Znacznik sojuszu: {}", ex.toString());
+				}
 			}
 		}
 	}
@@ -1008,6 +1068,11 @@ public final class BotManager {
 	/** Walka bota z innym botem: podchodzi i bije co ok. 0,6 s; siła zależy od poziomu. Zwraca true, gdy walczy w tym ticku. */
 	private static boolean fightStep(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		if (s.foeP != null && r.partner != null && s.foeP.toString().equals(r.partner)) { // sojusznika gracza nie bijemy
+			s.foeP = null;
+			s.retal = false;
+			return false;
+		}
 		net.minecraft.world.entity.LivingEntity f;
 		boolean vsPlayer = s.foeP != null;
 		if (vsPlayer) {
