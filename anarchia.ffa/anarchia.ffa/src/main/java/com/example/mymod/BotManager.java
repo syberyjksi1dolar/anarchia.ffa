@@ -932,9 +932,8 @@ public final class BotManager {
 					net.minecraft.world.scores.PlayerTeam team = new net.minecraft.world.scores.PlayerTeam(server.getScoreboard(), "al_" + r.clan + (same ? "_g" : "_b"));
 					team.setColor(col);
 					team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[" + r.clan + "] ").withStyle(col));
+					team.getPlayers().add(sn); // pakiet tworzenia drużyny od razu zawiera tego bota
 					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, true));
-					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createPlayerPacket(team, sn,
-							net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.Operation.ADD));
 				} catch (Exception ex) {
 					MyMod.LOGGER.warn("Znacznik sojuszu: {}", ex.toString());
 				}
