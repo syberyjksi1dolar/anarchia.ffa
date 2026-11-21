@@ -172,6 +172,11 @@ public final class RangiManager {
 		return ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));
 	}
 
+	/** Czy nick należy do administratora (np. do podpisu sprzedawcy na rynku). */
+	public static boolean isAdminName(String nick) {
+		return nick != null && ADMINS.contains(nick.toLowerCase(Locale.ROOT));
+	}
+
 	private static boolean isAdmin(CommandSourceStack s) {
 		ServerPlayer p = s.getPlayer();
 		return p == null || ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));

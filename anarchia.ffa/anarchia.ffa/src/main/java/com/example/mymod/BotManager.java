@@ -31,6 +31,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.BlockPos;
@@ -59,6 +60,7 @@ public final class BotManager {
 		int level;
 		String skin;
 		boolean funded;
+		boolean kit;
 	}
 
 	private static final class Slot {
@@ -132,6 +134,7 @@ public final class BotManager {
 		r.nick = nick;
 		r.skin = skin;
 		r.level = Math.max(1, Math.min(10, level));
+		r.kit = true; // admin sam dał przedmioty
 		ROSTER.add(r);
 		SimpleContainer c = inv(nick);
 		for (ItemStack s : items) addStack(c, s);
@@ -305,7 +308,10 @@ public final class BotManager {
 		final double sy = Math.max(SPAWN_Y, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z)));
 		String base = "summon minecraft:mannequin " + x + " " + sy + " " + z
 				+ " {CustomName:\"" + r.nick + "\",CustomNameVisible:1b,Tags:[\"" + TAG + "\"],hide_description:1b,";
-		String withSkin = base + "profile:{texture:\"minecraft:entity/player/wide/" + r.skin + "\"}}";
+		boolean stock = false;
+		for (String k : SKINS) if (k.equals(r.skin)) stock = true;
+		String withSkin = stock ? base + "profile:{texture:\"minecraft:entity/player/wide/" + r.skin + "\"}}"
+				: base + "profile:\"" + r.skin + "\"}";
 		String noSkin = base.substring(0, base.length() - 1) + "}";
 		CommandSourceStack src = server.createCommandSourceStack().withLevel(level).withSuppressedOutput();
 		try {
@@ -322,6 +328,13 @@ public final class BotManager {
 		for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, box, BotManager::isBot)) {
 			if (r.nick.equals(m.getName().getString()) && !isTracked(m)) {
 				s.entity = m;
+				if (!r.kit) {
+					r.kit = true;
+					giveKit(r);
+					save();
+					saveInv();
+				}
+				equip(m, r);
 				if (!r.funded) {
 					r.funded = true;
 					Pieniadze.addAll(Map.of("bot:" + r.nick, FUNDS_PER_LEVEL * r.level));
@@ -388,6 +401,46 @@ public final class BotManager {
 		}
 	}
 
+	/** Jednorazowy zestaw startowy zależny od poziomu (trafia do ekwipunku, bot może to sprzedać). */
+	private static void giveKit(Rec r) {
+		SimpleContainer c = inv(r.nick);
+		int l = r.level;
+		c.addItem(new ItemStack(Items.BREAD, 6 + l * 2));
+		c.addItem(new ItemStack(Items.COBBLESTONE, 16 + l * 6));
+		c.addItem(new ItemStack(Items.COAL, 4 + l * 3));
+		c.addItem(new ItemStack(Items.OAK_LOG, l >= 5 ? 80 : 8 + l * 4));
+		c.addItem(new ItemStack(Items.APPLE, 2 + l));
+		if (l >= 2) c.addItem(new ItemStack(Items.IRON_INGOT, l * 2));
+		if (l >= 3) c.addItem(new ItemStack(Items.ARROW, l * 4));
+		if (l >= 4) {
+			c.addItem(new ItemStack(Items.WHEAT_SEEDS, 8));
+			c.addItem(new ItemStack(Items.WATER_BUCKET, 1));
+		}
+		if (l >= 6) c.addItem(new ItemStack(Items.DIAMOND, l - 4));
+		if (l >= 8) c.addItem(new ItemStack(Items.EMERALD, l - 5));
+		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 2));
+	}
+
+	/** Ubiór bota (tylko wygląd, nie jest przedmiotem w ekwipunku i nie wypada po śmierci). */
+	private static void equip(Mannequin m, Rec r) {
+		int l = r.level;
+		Item sword = l >= 10 ? Items.NETHERITE_SWORD : l >= 7 ? Items.DIAMOND_SWORD : l >= 4 ? Items.IRON_SWORD : l >= 2 ? Items.STONE_SWORD : Items.WOODEN_SWORD;
+		Item[] armor;
+		if (l >= 10) armor = new Item[] {Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS};
+		else if (l >= 7) armor = new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS};
+		else if (l >= 4) armor = new Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS};
+		else if (l >= 2) armor = new Item[] {Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS};
+		else armor = new Item[0];
+		try {
+			m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(sword));
+			net.minecraft.world.entity.EquipmentSlot[] sl = {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+					net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+			for (int i = 0; i < armor.length; i++) m.setItemSlot(sl[i], new ItemStack(armor[i]));
+		} catch (Exception e) {
+			MyMod.LOGGER.warn("Ubiór bota {}: {}", r.nick, e.toString());
+		}
+	}
+
 	private static boolean inPond(double x, double z) {
 		return x >= POND_X1 && x <= POND_X2 && z >= POND_Z1 && z <= POND_Z2;
 	}
@@ -435,8 +488,14 @@ public final class BotManager {
 		}
 		int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(nx), (int) Math.floor(nz));
 		float yaw = (float) (Math.toDegrees(Math.atan2(-dx, dz)));
-		m.setPos(nx, gy, nz);
-		m.setSwimming(inPond(nx, nz) && level.getFluidState(new BlockPos((int) Math.floor(nx), gy - 1, (int) Math.floor(nz))).is(net.minecraft.tags.FluidTags.WATER));
+		boolean water = level.getFluidState(new BlockPos((int) Math.floor(nx), gy - 1, (int) Math.floor(nz))).is(net.minecraft.tags.FluidTags.WATER);
+		if (water && !inPond(nx, nz)) {
+			s.tx = m.getX(); s.tz = m.getZ(); // poza stawem nie wchodzą do wody
+			s.wait = 5;
+			return;
+		}
+		m.setPos(nx, water ? gy - 0.85 : gy, nz); // w stawie pływają zanurzeni, nie chodzą po tafli
+		m.setSwimming(water);
 		m.setYRot(yaw);
 		m.setYHeadRot(yaw);
 		m.setYBodyRot(yaw);

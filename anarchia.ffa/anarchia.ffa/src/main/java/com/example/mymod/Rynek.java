@@ -629,7 +629,12 @@ public final class Rynek {
 		long unit = Math.round((double) o.price / (double) o.count);
 		long leftMs = o.created + WAZNOSC_MS - System.currentTimeMillis();
 		List<Component> l = new ArrayList<>();
-		l.add(lore("Sprzedający: " + o.sellerName, ChatFormatting.GRAY));
+		if (RangiManager.isAdminName(o.sellerName)) {
+			l.add(Component.literal("Sprzedający: ").withStyle(st -> st.withItalic(false).withColor(ChatFormatting.GRAY))
+					.append(Component.literal(o.sellerName + " [ADMIN]").withStyle(st -> st.withItalic(false).withBold(true).withColor(ChatFormatting.RED))));
+		} else {
+			l.add(lore("Sprzedający: " + o.sellerName, ChatFormatting.GRAY));
+		}
 		l.add(lore("Ilość: " + o.count, ChatFormatting.GRAY));
 		l.add(lore("Cena: " + Pieniadze.formatShort(o.price) + " (" + Pieniadze.format(unit) + " za sztukę)", ChatFormatting.GOLD));
 		if (mode == Mode.EXPIRED) {
