@@ -62,11 +62,12 @@ public final class BotManager {
 		boolean funded;
 		boolean kit;
 		boolean event;
+		String clan;
 	}
 
 	private static final class Mine {
 		double sx, sy, sz, x, y, z;
-		int phase, targetY, dir, steps, turns, tick;
+		int phase, targetY, dir, steps, turns, tick, maxSteps;
 	}
 
 	private static final class Slot {
@@ -83,6 +84,7 @@ public final class BotManager {
 		boolean first = true;
 		int act;
 		String foe;
+		int jump, sprintT;
 		boolean retal;
 		Mine mine;
 		java.util.UUID foeP;
@@ -118,6 +120,16 @@ public final class BotManager {
 		return l;
 	}
 
+	/** Tylko boty, które teraz żyją w świecie (handlują wyłącznie takie, jak widzisz na mapie). */
+	public static List<String> aliveNicks() {
+		List<String> l = new ArrayList<>();
+		for (Map.Entry<String, State> e : STATES.entrySet()) {
+			Mannequin m = e.getValue().entity;
+			if (m != null && !m.isRemoved() && m.isAlive()) l.add(e.getKey());
+		}
+		return l;
+	}
+
 	public static SimpleContainer inv(String nick) {
 		return INV.computeIfAbsent(nick, k -> new SimpleContainer(36));
 	}
@@ -150,6 +162,7 @@ public final class BotManager {
 		r.level = Math.max(1, Math.min(10, level));
 		r.kit = true; // admin sam dał przedmioty
 		ROSTER.add(r);
+		assignClans();
 		PENDING.put(nick, new double[] {px, py, pz});
 		SimpleContainer c = inv(nick);
 		for (ItemStack s : items) addStack(c, s);
@@ -221,6 +234,20 @@ public final class BotManager {
 					s.mine = null;
 				}
 			}
+			String cl = null;
+			for (Map.Entry<String, State> e : STATES.entrySet()) if (e.getValue().entity == m) cl = clanOf(e.getKey());
+			if (cl == null) return;
+			for (Map.Entry<String, State> e : STATES.entrySet()) { // sojusznicy z okolicy pomagają
+				State a = e.getValue();
+				if (a.entity == null || a.entity == m || a.entity.isRemoved() || !cl.equals(clanOf(e.getKey()))) continue;
+				if (a.entity.distanceToSqr(m) < 50 * 50) {
+					a.foeP = p.getUUID();
+					a.foe = null;
+					a.fight = 1200;
+					a.retal = true;
+					a.mine = null;
+				}
+			}
 		});
 		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof Mannequin m && isBot(m) && source.getEntity() instanceof ServerPlayer
@@ -261,7 +288,34 @@ public final class BotManager {
 			ROSTER.add(r);
 			added = true;
 		}
+		if (assignClans()) added = true;
 		if (added) save();
+	}
+
+	/** Sojusze: boty bez klanu trafiają do grup po 4-6; członkowie klanu się nie biją i pomagają sobie. */
+	private static boolean assignClans() {
+		List<Rec> free = new ArrayList<>();
+		int maxN = 0;
+		for (Rec r : ROSTER) {
+			if (r.clan == null) free.add(r);
+			else try { maxN = Math.max(maxN, Integer.parseInt(r.clan.substring(1))); } catch (Exception ignored) { }
+		}
+		if (free.isEmpty()) return false;
+		Collections.shuffle(free, RNG);
+		int i = 0;
+		while (i < free.size()) {
+			int size = Math.min(4 + RNG.nextInt(3), free.size() - i);
+			if (free.size() - i - size < 4 && free.size() - i - size > 0) size = free.size() - i;
+			maxN++;
+			for (int k = 0; k < size; k++) free.get(i + k).clan = "K" + maxN;
+			i += size;
+		}
+		return true;
+	}
+
+	private static String clanOf(String nick) {
+		for (Rec r : ROSTER) if (r.nick.equals(nick)) return r.clan;
+		return null;
 	}
 
 	private static void save() {
@@ -495,11 +549,11 @@ public final class BotManager {
 		c.addItem(new ItemStack(Items.COBBLESTONE, 32 + l * 8));
 		c.addItem(new ItemStack(Items.COAL, 8 + l * 4));
 		c.addItem(new ItemStack(Items.OAK_LOG, l >= 3 ? 80 : 16 + l * 8));
-		c.addItem(new ItemStack(Items.OAK_PLANKS, 16 + l * 4));
+		c.addItem(new ItemStack(Items.OAK_PLANKS, 40 + l * 4));
 		c.addItem(new ItemStack(Items.APPLE, 3 + l));
 		c.addItem(new ItemStack(Items.TORCH, 16 + l * 2));
 		c.addItem(new ItemStack(Items.STICK, 8));
-		c.addItem(new ItemStack(Items.WHEAT_SEEDS, 8 + l));
+		c.addItem(new ItemStack(Items.WHEAT_SEEDS, 16 + l * 8));
 		c.addItem(new ItemStack(Items.WATER_BUCKET, 1));
 		c.addItem(new ItemStack(Items.BUCKET, 1));
 		if (l >= 2) {
@@ -668,7 +722,10 @@ public final class BotManager {
 		k.sx = k.x = x;
 		k.sz = k.z = z;
 		k.sy = k.y = m.getY();
-		k.targetY = (int) Math.max(-48, k.sy - (20 + RNG.nextInt(35)));
+		boolean deep = RNG.nextBoolean(); // połowa wypraw idzie na poziom diamentów (jak zwykły gracz)
+		k.targetY = deep ? -52 - RNG.nextInt(8) : (int) Math.max(-48, k.sy - (20 + RNG.nextInt(35)));
+		if (k.targetY > k.sy - 5) k.targetY = (int) k.sy - 5;
+		k.maxSteps = deep ? 120 : 70;
 		k.dir = RNG.nextInt(4);
 		s.mine = k;
 	}
@@ -728,7 +785,7 @@ public final class BotManager {
 						}
 					}
 				}
-				if (++k.steps >= 70) k.phase = 2;
+				if (++k.steps >= k.maxSteps) k.phase = 2;
 			}
 		} else {
 			endMine(m, s);
@@ -770,19 +827,34 @@ public final class BotManager {
 		double dx = f.getX() - m.getX(), dz = f.getZ() - m.getZ();
 		double d = Math.sqrt(dx * dx + dz * dz);
 		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-		if (d > 4.0) {
-			double step = Math.min(0.12 + 0.015 * r.level, d - 3.5);
+		// od czasu do czasu podskakują i sprintują
+		if (s.jump > 0) s.jump--; else if (RNG.nextInt(40) == 0) s.jump = 10;
+		if (s.sprintT > 0) s.sprintT--; else if (RNG.nextInt(60) == 0) s.sprintT = 30;
+		boolean sprint = s.sprintT > 0;
+		double jh = s.jump > 0 ? 0.6 * Math.sin(Math.PI * (10 - s.jump) / 10.0) : 0.0;
+		boolean los = m.hasLineOfSight(f); // przez ściany nie biją
+		if (d > 4.0 || !los) {
+			double speed = (0.12 + 0.015 * r.level) * (sprint ? 1.7 : 1.0);
+			double step = Math.max(0.03, Math.min(speed, d - 3.0));
 			double nx = m.getX() + dx / d * step, nz = m.getZ() + dz / d * step;
 			if (level.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) && !isWaterAt(level, nx, nz)) {
 				int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(nx), (int) Math.floor(nz));
-				m.setPos(nx, gy, nz);
+				m.setPos(nx, gy + jh, nz);
 			}
-		} else if (--s.cd <= 0) {
-			s.cd = 20; // zasięg 4 bloki, jedno uderzenie na sekundę
-			float dmg = vsPlayer ? (float) (1.0 + r.level * 0.35) : (float) (2.0 + r.level * 0.8);
-			f.hurtServer(level, level.damageSources().mobAttack(m), dmg);
-			if (vsPlayer) Antylogout.tagPlayer((ServerPlayer) f);
-			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			m.setSprinting(sprint);
+		} else {
+			m.setSprinting(false);
+			if (s.jump > 0) {
+				int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(m.getX()), (int) Math.floor(m.getZ()));
+				m.setPos(m.getX(), gy + jh, m.getZ());
+			}
+			if (--s.cd <= 0) {
+				s.cd = 20; // zasięg 4 bloki, jedno uderzenie na sekundę
+				float dmg = vsPlayer ? (float) (1.0 + r.level * 0.35) : (float) (2.0 + r.level * 0.8);
+				f.hurtServer(level, level.damageSources().mobAttack(m), dmg);
+				if (vsPlayer) Antylogout.tagPlayer((ServerPlayer) f);
+				m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			}
 		}
 		m.setYRot(yaw);
 		m.setYHeadRot(yaw);
@@ -814,6 +886,8 @@ public final class BotManager {
 		for (Map.Entry<String, State> e : STATES.entrySet()) {
 			Mannequin o = e.getValue().entity;
 			if (o == null || o == m || o.isRemoved() || !o.isAlive() || inSpawnArea(o.getX(), o.getZ())) continue;
+			String mc = r.clan;
+			if (mc != null && mc.equals(clanOf(e.getKey()))) continue; // sojusznik
 			double dx = o.getX() - m.getX(), dz = o.getZ() - m.getZ();
 			double d = dx * dx + dz * dz;
 			if (d < bd) { bd = d; best = e.getKey(); }
@@ -844,6 +918,16 @@ public final class BotManager {
 			double nz = m.getZ() + Math.sin(ang) * range * RNG.nextDouble();
 			s.tx = Math.max(-HALF + 1, Math.min(HALF - 1, nx));
 			s.tz = Math.max(-HALF + 1, Math.min(HALF - 1, nz));
+			if (r.clan != null && RNG.nextInt(8) == 0) { // trzymają się razem z sojusznikami
+				for (Map.Entry<String, State> e : STATES.entrySet()) {
+					Mannequin a = e.getValue().entity;
+					if (a != null && a != m && !a.isRemoved() && r.clan.equals(clanOf(e.getKey()))) {
+						s.tx = a.getX() + RNG.nextInt(17) - 8;
+						s.tz = a.getZ() + RNG.nextInt(17) - 8;
+						break;
+					}
+				}
+			}
 			if (RNG.nextInt(25) == 0) { // czasem idą popływać w stawie
 				s.tx = POND_X1 + 1 + RNG.nextDouble() * (POND_X2 - POND_X1 - 2);
 				s.tz = POND_Z1 + 1 + RNG.nextDouble() * (POND_Z2 - POND_Z1 - 2);

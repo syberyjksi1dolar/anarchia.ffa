@@ -110,11 +110,22 @@ public final class SpawnManager {
 			}
 		}
 		if (server.getTickCount() % 100 == 0) {
-			ensureNpc(server, level, NAME_RYNEK, NPC_RYNEK);
-			ensureNpc(server, level, NAME_SKLEP, NPC_SKLEP);
+			removeNpc(level, NAME_RYNEK, NPC_RYNEK);
+			removeNpc(level, NAME_SKLEP, NPC_SKLEP);
 		}
 	}
 
+	/** Figury Rynek i Sklep zostały wycofane: usuwamy je ze świata (rynek i sklep otwiera /sklep). */
+	private static void removeNpc(ServerLevel level, String name, double[] c) {
+		BlockPos bp = BlockPos.containing(c[0], c[1], c[2]);
+		if (!level.hasChunkAt(bp)) return;
+		AABB box = new AABB(c[0] - 6, c[1] - 8, c[2] - 6, c[0] + 6, c[1] + 8, c[2] + 6);
+		for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, box, e -> name.equals(e.getName().getString()))) {
+			m.discard();
+		}
+	}
+
+	@SuppressWarnings("unused")
 	private static void ensureNpc(MinecraftServer server, ServerLevel level, String name, double[] c) {
 		BlockPos bp = BlockPos.containing(c[0], c[1], c[2]);
 		if (!level.hasChunkAt(bp)) return;

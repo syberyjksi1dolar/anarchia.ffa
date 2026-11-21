@@ -20,7 +20,7 @@ final class BotRynek {
 		for (Rynek.Offer o : Rynek.removeExpiredBotOffers()) {
 			BotManager.addItem(o.seller.substring(4), o.item, o.count);
 		}
-		List<String> nicks = BotManager.nicks();
+		List<String> nicks = BotManager.aliveNicks();
 		if (nicks.isEmpty()) return;
 		sell(nicks.get(RNG.nextInt(nicks.size())));
 		for (int k = 0; k < 2; k++) {

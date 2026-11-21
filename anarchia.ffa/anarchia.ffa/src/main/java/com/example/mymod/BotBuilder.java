@@ -1,6 +1,8 @@
 package com.example.mymod;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -10,6 +12,7 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.decoration.Mannequin;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -17,19 +20,20 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Bot buduje jak zwykły gracz: wolno (jeden blok co ok. 2 s), tylko z własnego ekwipunku.
- * Dom: 5x5, ściany 3 bloki + dach, wszystko z kłód (min. 72) z drzwiami (dziura). Farma 3x3: woda w środku,
- * ziemia zamieniona w grządki i posadzone nasiona pszenicy (8 nasion + wiadro wody).
+ * Dom 7x7: podłoga z bruku, ściany z desek z kłodami w rogach, wejście, okna (otwory), dach i pochodnia w środku.
+ * Farma: woda pośrodku i pszenica dookoła; rozmiar zależy od liczby nasion (9x9, 5x5 albo 3x3).
  */
 final class BotBuilder {
 	private BotBuilder() {}
 
 	private static final Random RNG = new Random();
+	private static final int WALL = 0, COBBLE = 1, TORCH = 2, WATER = 3, CROP = 4, CORNER = 5, COBWALL = 6;
+
+	private record P(BlockPos pos, int type) {}
 
 	private static final class Job {
-		boolean farm;
-		BlockPos[] pos;
+		List<P> plan;
 		int idx;
-		int pause;
 	}
 
 	private static final Map<String, Job> JOBS = new HashMap<>();
@@ -38,18 +42,27 @@ final class BotBuilder {
 		return JOBS.containsKey(nick);
 	}
 
-	private static int count(SimpleContainer c, boolean logs) {
+	private static boolean isLog(ItemStack s) {
+		return s.getItem() instanceof BlockItem bi && bi.getBlock().defaultBlockState().is(BlockTags.LOGS);
+	}
+
+	private static boolean isPlank(ItemStack s) {
+		return s.getItem() instanceof BlockItem bi && bi.getBlock().defaultBlockState().is(BlockTags.PLANKS);
+	}
+
+	private static int countWall(SimpleContainer c) {
 		int n = 0;
 		for (int i = 0; i < c.getContainerSize(); i++) {
 			ItemStack s = c.getItem(i);
-			if (s.isEmpty()) continue;
-			if (logs ? isLog(s) : s.is(Items.WHEAT_SEEDS)) n += s.getCount();
+			if (!s.isEmpty() && (isLog(s) || isPlank(s))) n += s.getCount();
 		}
 		return n;
 	}
 
-	private static boolean isLog(ItemStack s) {
-		return s.getItem() instanceof BlockItem bi && bi.getBlock().defaultBlockState().is(BlockTags.LOGS);
+	private static int count(SimpleContainer c, Item it) {
+		int n = 0;
+		for (int i = 0; i < c.getContainerSize(); i++) if (c.getItem(i).is(it)) n += c.getItem(i).getCount();
+		return n;
 	}
 
 	/** Wywoływane co 2 s dla bota; zwraca true, gdy bot jest zajęty budową. */
@@ -61,53 +74,91 @@ final class BotBuilder {
 			if (Math.abs(bx) < 40 && Math.abs(bz) < 50) return false; // nie przy spawnie, rynku i stawie
 			if (RNG.nextInt(4) != 0) return false;
 			int gy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
-			boolean farm = count(inv, false) >= 8 && has(inv, Items.WATER_BUCKET);
-			boolean house = count(inv, true) >= 72;
-			if (!farm && !house) return false;
-			if (house && farm && RNG.nextBoolean()) farm = false;
-			if (!farm && !house) return false;
-			Job n = new Job();
-			n.farm = farm;
 			BlockPos o = new BlockPos(bx + 3, gy, bz + 3);
-			n.pos = farm ? farmPlan(level, o) : housePlan(level, o);
-			if (n.pos == null) return false; // teren nie nadaje się, spróbuje gdzie indziej
+			List<Integer> kinds = new ArrayList<>();
+			int wall = countWall(inv), cob = count(inv, Items.COBBLESTONE), seeds = count(inv, Items.WHEAT_SEEDS);
+			if (wall >= 71) kinds.add(0);
+			if (seeds >= 8 && count(inv, Items.WATER_BUCKET) >= 1) kinds.add(1);
+			if (cob >= 80) kinds.add(2);
+			if (cob >= 84) kinds.add(3);
+			if (kinds.isEmpty()) return false;
+			int kind = kinds.get(RNG.nextInt(kinds.size()));
+			List<P> plan = switch (kind) {
+				case 0 -> housePlan(level, o, inv, wall, cob);
+				case 1 -> farmPlan(level, o, seeds);
+				case 2 -> towerPlan(level, o);
+				default -> pyramidPlan(level, o);
+			};
+			if (plan == null) return false; // teren nie nadaje się, spróbuje gdzie indziej
+			Job n = new Job();
+			n.plan = plan;
 			JOBS.put(nick, n);
 			return true;
 		}
-		if (j.idx >= j.pos.length) {
+		if (j.idx >= j.plan.size()) {
 			JOBS.remove(nick);
 			return false;
 		}
-		BlockPos p = j.pos[j.idx++];
-		if (j.farm) {
-			// pozycje: [0]=woda, 1..8 = grządki (grządka + nasiono)
-			if (j.idx == 1) {
-				if (!take(inv, Items.WATER_BUCKET, 1)) { JOBS.remove(nick); return false; }
-				level.setBlock(p, Blocks.WATER.defaultBlockState(), 3);
-				inv.addItem(new ItemStack(Items.BUCKET));
-			} else {
-				if (!take(inv, Items.WHEAT_SEEDS, 1)) { JOBS.remove(nick); return false; }
-				level.setBlock(p.below(), Blocks.FARMLAND.defaultBlockState(), 3);
-				level.setBlock(p, Blocks.WHEAT.defaultBlockState(), 3);
+		// jak prawdziwy gracz: raz stawia kilka bloków pod rząd, raz rozgląda się i macha ręką
+		if (RNG.nextInt(5) == 0) {
+			float yaw = RNG.nextFloat() * 360f - 180f;
+			m.setYRot(yaw);
+			m.setYHeadRot(yaw);
+			m.setYBodyRot(yaw);
+			m.setXRot(RNG.nextFloat() * 40f - 20f);
+			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			return true;
+		}
+		int burst = 1 + RNG.nextInt(3);
+		P last = null;
+		for (int b = 0; b < burst && j.idx < j.plan.size(); b++) {
+			P p = j.plan.get(j.idx++);
+			BlockState st = null;
+			switch (p.type()) {
+				case CORNER -> st = takeWall(inv, true);
+				case WALL -> st = takeWall(inv, false);
+				case COBBLE, COBWALL -> st = take(inv, Items.COBBLESTONE) ? Blocks.COBBLESTONE.defaultBlockState() : null;
+				case TORCH -> st = take(inv, Items.TORCH) ? Blocks.TORCH.defaultBlockState() : Blocks.AIR.defaultBlockState();
+				case WATER -> {
+					if (take(inv, Items.WATER_BUCKET)) {
+						inv.addItem(new ItemStack(Items.BUCKET));
+						st = Blocks.WATER.defaultBlockState();
+					}
+				}
+				case CROP -> {
+					if (take(inv, Items.WHEAT_SEEDS)) {
+						level.setBlock(p.pos().below(), Blocks.FARMLAND.defaultBlockState(), 3);
+						st = Blocks.WHEAT.defaultBlockState();
+					}
+				}
+				default -> { }
 			}
-		} else {
-			BlockState st = takeLog(inv);
-			if (st == null) { JOBS.remove(nick); return false; }
-			level.setBlock(p, st, 3);
+			if (st == null) { // zabrakło materiału: kończy budowę
+				JOBS.remove(nick);
+				return false;
+			}
+			level.setBlock(p.pos(), st, 3);
+			last = p;
+		}
+		if (last != null) { // patrzy na postawiony blok i macha ręką
+			double dx = last.pos().getX() + 0.5 - m.getX(), dz = last.pos().getZ() + 0.5 - m.getZ();
+			double dy = last.pos().getY() + 0.5 - (m.getY() + 1.6);
+			float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+			float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.max(0.5, Math.sqrt(dx * dx + dz * dz))));
+			m.setYRot(yaw);
+			m.setYHeadRot(yaw);
+			m.setYBodyRot(yaw);
+			m.setXRot(pitch);
+			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
 		}
 		return true;
 	}
 
-	private static boolean has(SimpleContainer c, net.minecraft.world.item.Item it) {
-		for (int i = 0; i < c.getContainerSize(); i++) if (c.getItem(i).is(it)) return true;
-		return false;
-	}
-
-	private static boolean take(SimpleContainer c, net.minecraft.world.item.Item it, int n) {
+	private static boolean take(SimpleContainer c, Item it) {
 		for (int i = 0; i < c.getContainerSize(); i++) {
 			ItemStack s = c.getItem(i);
 			if (s.is(it)) {
-				s.shrink(n);
+				s.shrink(1);
 				if (s.isEmpty()) c.setItem(i, ItemStack.EMPTY);
 				c.setChanged();
 				return true;
@@ -116,64 +167,123 @@ final class BotBuilder {
 		return false;
 	}
 
-	private static BlockState takeLog(SimpleContainer c) {
-		for (int i = 0; i < c.getContainerSize(); i++) {
-			ItemStack s = c.getItem(i);
-			if (!s.isEmpty() && isLog(s)) {
-				BlockState st = ((BlockItem) s.getItem()).getBlock().defaultBlockState();
-				s.shrink(1);
-				if (s.isEmpty()) c.setItem(i, ItemStack.EMPTY);
-				c.setChanged();
-				return st;
+	/** Kłoda w rogach, deski w ścianach; gdy brak preferowanego, bierze drugi rodzaj. */
+	private static BlockState takeWall(SimpleContainer c, boolean preferLog) {
+		for (int pass = 0; pass < 2; pass++) {
+			boolean wantLog = (pass == 0) == preferLog;
+			for (int i = 0; i < c.getContainerSize(); i++) {
+				ItemStack s = c.getItem(i);
+				if (!s.isEmpty() && (wantLog ? isLog(s) : isPlank(s))) {
+					BlockState st = ((BlockItem) s.getItem()).getBlock().defaultBlockState();
+					s.shrink(1);
+					if (s.isEmpty()) c.setItem(i, ItemStack.EMPTY);
+					c.setChanged();
+					return st;
+				}
 			}
 		}
 		return null;
 	}
 
-	private static boolean flat(ServerLevel level, BlockPos o, int w) {
+	private static boolean solidGround(BlockState gs) {
+		return gs.is(Blocks.GRASS_BLOCK) || gs.is(Blocks.DIRT) || gs.is(Blocks.SAND) || gs.is(Blocks.STONE);
+	}
+
+	private static boolean flat(ServerLevel level, BlockPos o, int w, int clearance) {
 		for (int dx = 0; dx < w; dx++) {
 			for (int dz = 0; dz < w; dz++) {
-				BlockPos g = o.offset(dx, -1, dz);
-				BlockPos a = o.offset(dx, 0, dz);
-				BlockState gs = level.getBlockState(g);
-				if (!(gs.is(Blocks.GRASS_BLOCK) || gs.is(Blocks.DIRT) || gs.is(Blocks.SAND) || gs.is(Blocks.STONE))) return false;
-				if (!level.getBlockState(a).isAir()) return false;
-				if (!level.getBlockState(a.above()).isAir() || !level.getBlockState(a.above(2)).isAir()) return false;
+				if (!solidGround(level.getBlockState(o.offset(dx, -1, dz)))) return false;
+				for (int h = 0; h < clearance; h++) {
+					if (!level.getBlockState(o.offset(dx, h, dz)).isAir()) return false;
+				}
 			}
 		}
 		return true;
 	}
 
-	private static BlockPos[] housePlan(ServerLevel level, BlockPos o) {
-		if (!flat(level, o, 5)) return null;
-		java.util.List<BlockPos> l = new java.util.ArrayList<>();
-		for (int y = 0; y < 3; y++) {
-			for (int x = 0; x < 5; x++) {
-				for (int z = 0; z < 5; z++) {
-					boolean edge = x == 0 || x == 4 || z == 0 || z == 4;
+	/** Dom o losowych wymiarach (5/7/9 x 5/7, wysokość 3-4); materiał ścian: deski albo bruk, rogi z kłód. */
+	private static List<P> housePlan(ServerLevel level, BlockPos o, SimpleContainer inv, int wall, int cob) {
+		int[] ws = {5, 7, 9}, ds = {5, 7};
+		int w = ws[RNG.nextInt(3)], d = ds[RNG.nextInt(2)], h = 3 + RNG.nextInt(2);
+		boolean cobWalls = cob >= 100 && RNG.nextBoolean();
+		for (int tries = 0; tries < 6; tries++) {
+			int per = 2 * (w + d) - 4;
+			int cost = per * h - 3 + w * d;
+			if (cobWalls) cost = w * d; // ściany z bruku, dach z desek/kłód
+			if (wall >= cost) break;
+			w = Math.max(5, w - 2);
+			d = 5;
+			h = 3;
+			cobWalls = false;
+		}
+		int per = 2 * (w + d) - 4;
+		if (wall < per * h - 3 + w * d && !(cobWalls)) return null;
+		if (!flat(level, o, Math.max(w, d), h + 2)) return null;
+		List<P> l = new ArrayList<>();
+		if (cob >= w * d + (cobWalls ? per * h : 0)) {
+			for (int x = 0; x < w; x++) for (int z = 0; z < d; z++) l.add(new P(o.offset(x, -1, z), COBBLE));
+		}
+		int doorX = w / 2;
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				for (int z = 0; z < d; z++) {
+					boolean edge = x == 0 || x == w - 1 || z == 0 || z == d - 1;
 					if (!edge) continue;
-					if (x == 2 && z == 0 && y < 2) continue; // wejście
-					l.add(o.offset(x, y, z));
+					if (x == doorX && z == 0 && y < 2) continue; // wejście 1x2
+					boolean sideMid = (z == d / 2 && (x == 0 || x == w - 1)) || (z == d - 1 && (x == doorX || (w >= 9 && (x == 2 || x == w - 3))));
+					if (y == 1 && sideMid) continue; // okna
+					boolean corner = (x == 0 || x == w - 1) && (z == 0 || z == d - 1);
+					l.add(new P(o.offset(x, y, z), corner ? CORNER : (cobWalls ? COBWALL : WALL)));
 				}
 			}
 		}
-		for (int x = 0; x < 5; x++) for (int z = 0; z < 5; z++) l.add(o.offset(x, 3, z));
-		return l.toArray(new BlockPos[0]);
+		for (int x = 0; x < w; x++) for (int z = 0; z < d; z++) l.add(new P(o.offset(x, h, z), WALL));
+		l.add(new P(o.offset(1, 0, d - 2), TORCH));
+		if (w >= 7) l.add(new P(o.offset(w - 2, 0, d - 2), TORCH));
+		return l;
 	}
 
-	private static BlockPos[] farmPlan(ServerLevel level, BlockPos o) {
-		for (int dx = 0; dx < 3; dx++) {
-			for (int dz = 0; dz < 3; dz++) {
+	/** Wieża obserwacyjna z bruku 3x3, 9 bloków wysokości, z wejściem i pochodnią na szczycie. */
+	private static List<P> towerPlan(ServerLevel level, BlockPos o) {
+		if (!flat(level, o, 3, 11)) return null;
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 9; y++) {
+			for (int x = 0; x < 3; x++) {
+				for (int z = 0; z < 3; z++) {
+					if (x == 1 && z == 1) continue;
+					if (x == 1 && z == 0 && y < 2) continue;
+					l.add(new P(o.offset(x, y, z), COBWALL));
+				}
+			}
+		}
+		l.add(new P(o.offset(1, 9, 1), TORCH));
+		return l;
+	}
+
+	/** Piramida schodkowa z bruku (7x7, 5x5, 3x3, 1x1) jako ozdoba. */
+	private static List<P> pyramidPlan(ServerLevel level, BlockPos o) {
+		if (!flat(level, o, 7, 5)) return null;
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 4; y++) {
+			int size = 7 - 2 * y;
+			for (int x = 0; x < size; x++) for (int z = 0; z < size; z++) l.add(new P(o.offset(x + y, y, z + y), COBWALL));
+		}
+		return l;
+	}
+
+	private static List<P> farmPlan(ServerLevel level, BlockPos o, int seeds) {
+		int n = seeds >= 80 ? 9 : seeds >= 24 ? 5 : 3;
+		for (int dx = 0; dx < n; dx++) {
+			for (int dz = 0; dz < n; dz++) {
 				BlockState gs = level.getBlockState(o.offset(dx, -1, dz));
 				if (!(gs.is(Blocks.GRASS_BLOCK) || gs.is(Blocks.DIRT))) return null;
 				if (!level.getBlockState(o.offset(dx, 0, dz)).isAir()) return null;
 			}
 		}
-		BlockPos[] a = new BlockPos[9];
-		// woda zastępuje środkowy blok ziemi (poziom -1), reszta to grządki z nasionami
-		a[0] = o.offset(1, -1, 1);
-		int k = 1;
-		for (int dx = 0; dx < 3; dx++) for (int dz = 0; dz < 3; dz++) if (!(dx == 1 && dz == 1)) a[k++] = o.offset(dx, 0, dz);
-		return a;
+		List<P> l = new ArrayList<>();
+		int c = n / 2;
+		l.add(new P(o.offset(c, -1, c), WATER));
+		for (int dx = 0; dx < n; dx++) for (int dz = 0; dz < n; dz++) if (!(dx == c && dz == c)) l.add(new P(o.offset(dx, 0, dz), CROP));
+		return l;
 	}
 }
