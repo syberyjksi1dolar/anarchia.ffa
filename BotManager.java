@@ -48,7 +48,7 @@ public final class BotManager {
 	private BotManager() {}
 
 	public static final String TAG = "anarchia_bot";
-	public static final int COUNT = 40;
+	public static final int COUNT = 100;
 	public static final int HALF = 750;               // obszar 1500 x 1500 wokół 0,0
 	public static final double SPAWN_X = 0.5, SPAWN_Y = 100, SPAWN_Z = 0.5;
 	private static final String[] SKINS = {"steve", "alex", "ari", "efe", "kai", "makena", "noor", "sunny", "zuri"};
@@ -61,6 +61,18 @@ public final class BotManager {
 		String skin;
 		boolean funded;
 		boolean kit;
+		boolean event;
+		String clan;
+		String role;
+		String buddy;
+		boolean hasHome;
+		double hx, hz;
+		String partner; // UUID gracza, z którym bot zawarł sojusz
+	}
+
+	private static final class Mine {
+		double sx, sy, sz, x, y, z;
+		int phase, targetY, dir, steps, turns, tick, maxSteps;
 	}
 
 	private static final class Slot {
@@ -77,6 +89,11 @@ public final class BotManager {
 		boolean first = true;
 		int act;
 		String foe;
+		int jump, sprintT, ritual;
+		String ritualWith;
+		boolean lead;
+		boolean retal;
+		Mine mine;
 		java.util.UUID foeP;
 		int fight;
 		int cd;
@@ -87,6 +104,10 @@ public final class BotManager {
 	private static final List<Rec> ROSTER = new ArrayList<>();
 	private static final Map<String, State> STATES = new HashMap<>();
 	private static boolean cleaned;
+	private static MinecraftServer SRV;
+	/** Co widz widział: gracz -> (scoreboardName bota -> "klan|kolor"). */
+	private static final Map<java.util.UUID, Map<String, String>> SEEN = new HashMap<>();
+	private static final Map<java.util.UUID, int[]> CROUCH = new HashMap<>(); // {liczba, tick pierwszego, był w dole, cooldown do}
 	/** Miejsce pojawienia się nowo stworzonego bota (tam, gdzie stał admin). */
 	private static final Map<String, double[]> PENDING = new HashMap<>();
 	private static final Map<String, SimpleContainer> INV = new HashMap<>();
@@ -107,6 +128,16 @@ public final class BotManager {
 	public static List<String> nicks() {
 		List<String> l = new ArrayList<>();
 		for (Rec r : ROSTER) l.add(r.nick);
+		return l;
+	}
+
+	/** Tylko boty, które teraz żyją w świecie (handlują wyłącznie takie, jak widzisz na mapie). */
+	public static List<String> aliveNicks() {
+		List<String> l = new ArrayList<>();
+		for (Map.Entry<String, State> e : STATES.entrySet()) {
+			Mannequin m = e.getValue().entity;
+			if (m != null && !m.isRemoved() && m.isAlive()) l.add(e.getKey());
+		}
 		return l;
 	}
 
@@ -200,7 +231,64 @@ public final class BotManager {
 			loadInv();
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> saveInv());
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((h, snd, srv) -> SEEN.remove(h.getPlayer().getUUID()));
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((h, srv) -> SEEN.remove(h.getPlayer().getUUID()));
 		ServerTickEvents.END_SERVER_TICK.register(BotManager::tick);
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
+			if (!(entity instanceof Mannequin m) || !isBot(m) || !(source.getEntity() instanceof ServerPlayer p)) return;
+			for (Map.Entry<String, State> e0 : STATES.entrySet()) {
+				Rec r0 = recOf(e0.getKey());
+				if (e0.getValue().entity == m && r0 != null && p.getUUID().toString().equals(r0.partner)) return; // własny sojusznik nie oddaje
+			}
+			for (State s : STATES.values()) { // uderzony bot od razu oddaje
+				if (s.entity == m) {
+					s.foeP = p.getUUID();
+					s.foe = null;
+					s.fight = 1200;
+					s.retal = true;
+					s.cd = 0;
+					s.mine = null;
+				}
+			}
+			String cl = null;
+			for (Map.Entry<String, State> e : STATES.entrySet()) if (e.getValue().entity == m) cl = clanOf(e.getKey());
+			if (cl == null) return;
+			for (Map.Entry<String, State> e : STATES.entrySet()) { // sojusznicy z okolicy pomagają
+				State a = e.getValue();
+				if (a.entity == null || a.entity == m || a.entity.isRemoved() || !cl.equals(clanOf(e.getKey()))) continue;
+				if (a.entity.distanceToSqr(m) < 50 * 50) {
+					a.foeP = p.getUUID();
+					a.foe = null;
+					a.fight = 1200;
+					a.retal = true;
+					a.mine = null;
+				}
+			}
+		});
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> {
+			if (!(entity instanceof ServerPlayer owner)) return;
+			String id = owner.getUUID().toString();
+			Entity att = source.getEntity();
+			for (Map.Entry<String, State> e : STATES.entrySet()) {
+				Rec r0 = recOf(e.getKey());
+				State st = e.getValue();
+				if (r0 == null || !id.equals(r0.partner) || st.entity == null || st.entity.isRemoved()) continue;
+				if (att instanceof ServerPlayer ap && ap != owner) {
+					st.foeP = ap.getUUID();
+					st.foe = null;
+					st.fight = 1200;
+					st.retal = true;
+				} else if (att instanceof Mannequin am && isBot(am) && am != st.entity) {
+					for (Map.Entry<String, State> e2 : STATES.entrySet()) {
+						if (e2.getValue().entity == am) {
+							st.foe = e2.getKey();
+							st.foeP = null;
+							st.fight = 400;
+						}
+					}
+				}
+			}
+		});
 		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof Mannequin m && isBot(m) && source.getEntity() instanceof ServerPlayer
 					&& entity.level() instanceof ServerLevel lv && RNG.nextDouble() < 0.03) {
@@ -216,25 +304,16 @@ public final class BotManager {
 			if (Files.exists(file())) {
 				Type t = new TypeToken<List<Rec>>() {}.getType();
 				List<Rec> l = GSON.fromJson(Files.readString(file(), StandardCharsets.UTF_8), t);
-				if (l != null && !l.isEmpty()) {
-					ROSTER.addAll(l);
-					return;
-				}
+				if (l != null) ROSTER.addAll(l);
 			}
 		} catch (Exception e) {
 			MyMod.LOGGER.warn("Nie udało się wczytać botów: {}", e.toString());
 		}
-		// rozkład dla 40 botów: 4 x poz.1, 6 x 2-3, 20 x 4-5, 1 x 6-7, 8 x 8-9, 1 x 10
-		List<Integer> levels = new ArrayList<>();
-		for (int i = 0; i < 4; i++) levels.add(1);
-		for (int i = 0; i < 6; i++) levels.add(2 + RNG.nextInt(2));
-		for (int i = 0; i < 20; i++) levels.add(4 + RNG.nextInt(2));
-		levels.add(6 + RNG.nextInt(2));
-		for (int i = 0; i < 8; i++) levels.add(8 + RNG.nextInt(2));
-		levels.add(10);
-		Collections.shuffle(levels, RNG);
+		// uzupełniamy do COUNT botów (istniejące zostają bez zmian); poziomy: ok. 10% poz.1, 15% 2-3, 50% 4-5, 2,5% 6-7, 20% 8-9, 2,5% 10
 		Set<String> used = new HashSet<>();
-		for (int i = 0; i < COUNT; i++) {
+		for (Rec r : ROSTER) used.add(r.nick);
+		boolean added = false;
+		while (ROSTER.size() < COUNT) {
 			Rec r = new Rec();
 			String n;
 			do {
@@ -243,11 +322,45 @@ public final class BotManager {
 				n = form == 0 ? p + (10 + RNG.nextInt(90)) : form == 1 ? p + (100 + RNG.nextInt(900)) : p + "_PL";
 			} while (!used.add(n));
 			r.nick = n;
-			r.level = levels.get(i);
+			int x = RNG.nextInt(40);
+			r.level = x < 4 ? 1 : x < 10 ? 2 + RNG.nextInt(2) : x < 30 ? 4 + RNG.nextInt(2) : x < 31 ? 6 + RNG.nextInt(2) : x < 39 ? 8 + RNG.nextInt(2) : 10;
 			r.skin = SKINS[RNG.nextInt(SKINS.length)];
 			ROSTER.add(r);
+			added = true;
 		}
-		save();
+		for (Rec r : ROSTER) { // dawne klany K1.. znikają, sojusze tworzą się teraz w grze
+			if (r.clan != null && r.clan.matches("K\\d+")) {
+				r.clan = null;
+				added = true;
+			}
+		}
+		if (added) save();
+	}
+
+	/** Sojusze: boty bez klanu trafiają do grup po 4-6; członkowie klanu się nie biją i pomagają sobie. */
+	private static boolean assignClans() {
+		List<Rec> free = new ArrayList<>();
+		int maxN = 0;
+		for (Rec r : ROSTER) {
+			if (r.clan == null) free.add(r);
+			else try { maxN = Math.max(maxN, Integer.parseInt(r.clan.substring(1))); } catch (Exception ignored) { }
+		}
+		if (free.isEmpty()) return false;
+		Collections.shuffle(free, RNG);
+		int i = 0;
+		while (i < free.size()) {
+			int size = Math.min(4 + RNG.nextInt(3), free.size() - i);
+			if (free.size() - i - size < 4 && free.size() - i - size > 0) size = free.size() - i;
+			maxN++;
+			for (int k = 0; k < size; k++) free.get(i + k).clan = "K" + maxN;
+			i += size;
+		}
+		return true;
+	}
+
+	private static String clanOf(String nick) {
+		for (Rec r : ROSTER) if (r.nick.equals(nick)) return r.clan;
+		return null;
 	}
 
 	private static void save() {
@@ -260,6 +373,9 @@ public final class BotManager {
 
 	// ---------- tick ----------
 	private static void tick(MinecraftServer server) {
+		SRV = server;
+		crouchTick(server);
+		if (server.getTickCount() % 20 == 7) allianceTags(server);
 		ServerLevel level = server.overworld();
 		if (level == null) return;
 		if (!cleaned) {
@@ -291,6 +407,7 @@ public final class BotManager {
 				s.entity = null;
 				s.foe = null;
 				s.foeP = null;
+				s.mine = null;
 				if (--s.respawnIn <= 0) {
 					spawn(server, level, r, s);
 					s.respawnIn = 100; // ponowna próba po 5 s, jeśli się nie udało
@@ -304,6 +421,8 @@ public final class BotManager {
 			if (t % 10 == 0) {
 				activity(level, r, s);
 				maybeStartFight(level, r, s);
+				maybeStartMine(level, r, s);
+				maybeAlly(level, r, s);
 			}
 		}
 		if (t % 10 == 0) drawBorder(level);
@@ -325,11 +444,15 @@ public final class BotManager {
 		if (pend != null) {
 			x = pend[0];
 			z = pend[2];
+		} else if (r.hasHome) { // po śmierci wraca tam, gdzie pojawił się po raz pierwszy
+			x = r.hx;
+			z = r.hz;
 		} else if (isWaterAt(level, x, z)) { // nie pojawiamy się na wodzie (boty nie umieją pływać)
 			x = SPAWN_X + RNG.nextInt(7) - 3;
 			z = SPAWN_Z + RNG.nextInt(7) - 3;
 		}
-		final double sy = pend != null ? pend[1] : Math.max(SPAWN_Y, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z)));
+		int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z));
+		final double sy = pend != null ? pend[1] : (ground > 5 ? ground : SPAWN_Y); // zawsze na ziemi, nie w powietrzu
 		String base = "summon minecraft:mannequin " + x + " " + sy + " " + z
 				+ " {CustomName:\"" + r.nick + "\",CustomNameVisible:1b,Tags:[\"" + TAG + "\"],hide_description:1b,";
 		boolean stock = false;
@@ -352,6 +475,12 @@ public final class BotManager {
 		for (Mannequin m : level.getEntitiesOfClass(Mannequin.class, box, BotManager::isBot)) {
 			if (r.nick.equals(m.getName().getString()) && !isTracked(m)) {
 				s.entity = m;
+				if (!r.hasHome) {
+					r.hasHome = true;
+					r.hx = m.getX();
+					r.hz = m.getZ();
+					save();
+				}
 				if (!r.kit) {
 					r.kit = true;
 					giveKit(r);
@@ -373,7 +502,6 @@ public final class BotManager {
 	}
 
 	private static void dropAll(ServerLevel level, Rec r, State s) {
-		r.kit = false; // po śmierci bot dostaje nowy starter pack przy kolejnym pojawieniu się
 		Mannequin dead = s.entity;
 		if (dead != null) {
 			net.minecraft.world.entity.EquipmentSlot[] all = {net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.entity.EquipmentSlot.HEAD,
@@ -451,6 +579,12 @@ public final class BotManager {
 				giveKit(r);
 				ch = true;
 			}
+			if (!r.event) { // istniejące boty też dostają jedną eventówkę
+				r.event = true;
+				Item ev = Rynek.randomEventItem();
+				if (ev != null) inv(r.nick).addItem(new ItemStack(ev));
+				ch = true;
+			}
 			if (!r.funded) {
 				r.funded = true;
 				Pieniadze.addAll(Map.of("bot:" + r.nick, FUNDS_PER_LEVEL * r.level));
@@ -464,27 +598,66 @@ public final class BotManager {
 	}
 
 	/** Jednorazowy zestaw startowy zależny od poziomu (trafia do ekwipunku, bot może to sprzedać). */
+	/** Zestaw startowy bota (większy niż wcześniej); przy pierwszym pojawieniu dochodzi losowa eventówka. */
 	private static void giveKit(Rec r) {
 		SimpleContainer c = inv(r.nick);
 		int l = r.level;
-		c.addItem(new ItemStack(Items.BREAD, 6 + l * 2));
-		c.addItem(new ItemStack(Items.COBBLESTONE, 16 + l * 6));
-		c.addItem(new ItemStack(Items.COAL, 4 + l * 3));
-		c.addItem(new ItemStack(Items.OAK_LOG, l >= 5 ? 80 : 8 + l * 4));
-		c.addItem(new ItemStack(Items.APPLE, 2 + l));
-		if (l >= 2) c.addItem(new ItemStack(Items.IRON_INGOT, l * 2));
-		if (l >= 3) c.addItem(new ItemStack(Items.ARROW, l * 4));
-		if (l >= 4) {
-			c.addItem(new ItemStack(Items.WHEAT_SEEDS, 8));
-			c.addItem(new ItemStack(Items.WATER_BUCKET, 1));
+		c.addItem(new ItemStack(Items.BREAD, 10 + l * 3));
+		c.addItem(new ItemStack(Items.COOKED_BEEF, 4 + l * 2));
+		c.addItem(new ItemStack(Items.COBBLESTONE, 32 + l * 8));
+		c.addItem(new ItemStack(Items.COAL, 8 + l * 4));
+		c.addItem(new ItemStack(Items.OAK_LOG, l >= 3 ? 80 : 16 + l * 8));
+		c.addItem(new ItemStack(Items.OAK_PLANKS, 40 + l * 4));
+		c.addItem(new ItemStack(Items.APPLE, 3 + l));
+		c.addItem(new ItemStack(Items.TORCH, 16 + l * 2));
+		c.addItem(new ItemStack(Items.STICK, 8));
+		c.addItem(new ItemStack(Items.WHEAT_SEEDS, 16 + l * 8));
+		c.addItem(new ItemStack(Items.WATER_BUCKET, 1));
+		c.addItem(new ItemStack(Items.BUCKET, 1));
+		if (l >= 2) {
+			c.addItem(new ItemStack(Items.IRON_INGOT, l * 3));
+			c.addItem(new ItemStack(Items.RAW_COPPER, l * 2));
+			c.addItem(new ItemStack(Items.REDSTONE, l * 2));
 		}
-		if (l >= 6) c.addItem(new ItemStack(Items.DIAMOND, l - 4));
-		if (l >= 8) c.addItem(new ItemStack(Items.EMERALD, l - 5));
-		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 2));
-		// starter pack: miecz i zbroja zależne od poziomu (prawdziwe przedmioty)
+		if (l >= 3) {
+			c.addItem(new ItemStack(Items.ARROW, l * 6));
+			c.addItem(new ItemStack(Items.GOLD_INGOT, l));
+			c.addItem(new ItemStack(Items.LAPIS_LAZULI, l * 2));
+			c.addItem(new ItemStack(Items.SNOWBALL, 8));
+		}
+		if (l >= 4) {
+			c.addItem(new ItemStack(Items.SHIELD, 1));
+			c.addItem(new ItemStack(Items.SLIME_BALL, l));
+			c.addItem(new ItemStack(Items.QUARTZ, l * 2));
+		}
+		if (l >= 6) {
+			c.addItem(new ItemStack(Items.DIAMOND, l - 3));
+			c.addItem(new ItemStack(Items.ENDER_PEARL, 2));
+			c.addItem(new ItemStack(Items.TNT, 3));
+		}
+		if (l >= 8) {
+			c.addItem(new ItemStack(Items.EMERALD, l - 4));
+			c.addItem(new ItemStack(Items.GOLDEN_CARROT, 8));
+		}
+		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 3));
+		// starter pack: miecz, zbroja i kilof zależne od poziomu (prawdziwe przedmioty)
 		c.addItem(new ItemStack(swordFor(l)));
+		c.addItem(new ItemStack(pickFor(l)));
 		for (Item a : armorFor(l)) c.addItem(new ItemStack(a));
+		if (!r.event) { // pierwszy raz: jedna losowa eventówka
+			r.event = true;
+			Item ev = Rynek.randomEventItem();
+			if (ev != null) c.addItem(new ItemStack(ev));
+		}
 	}
+
+	private static Item pickFor(int l) {
+		return l >= 10 ? Items.NETHERITE_PICKAXE : l >= 7 ? Items.DIAMOND_PICKAXE : l >= 4 ? Items.IRON_PICKAXE : l >= 2 ? Items.STONE_PICKAXE : Items.WOODEN_PICKAXE;
+	}
+
+	public static final java.util.Set<String> KIT_PATHS = java.util.Set.of("bread", "cooked_beef", "cobblestone", "coal", "apple",
+			"iron_ingot", "raw_copper", "redstone", "arrow", "gold_ingot", "lapis_lazuli", "snowball", "slime_ball", "quartz",
+			"diamond", "tnt", "emerald", "golden_apple", "water_bucket");
 
 	private static Item swordFor(int l) {
 		return l >= 10 ? Items.NETHERITE_SWORD : l >= 7 ? Items.DIAMOND_SWORD : l >= 4 ? Items.IRON_SWORD : l >= 2 ? Items.STONE_SWORD : Items.WOODEN_SWORD;
@@ -583,6 +756,310 @@ public final class BotManager {
 		return false;
 	}
 
+	private static final int[] DX = {1, 0, -1, 0};
+	private static final int[] DZ = {0, 1, 0, -1};
+
+	private static boolean isOre(BlockState st) {
+		return st.is(BlockTags.COAL_ORES) || st.is(BlockTags.IRON_ORES) || st.is(BlockTags.COPPER_ORES) || st.is(BlockTags.GOLD_ORES)
+				|| st.is(BlockTags.DIAMOND_ORES) || st.is(BlockTags.EMERALD_ORES) || st.is(BlockTags.LAPIS_ORES) || st.is(BlockTags.REDSTONE_ORES);
+	}
+
+	private static boolean breakable(ServerLevel level, BlockPos p) {
+		BlockState st = level.getBlockState(p);
+		return st.isAir() || (st.getDestroySpeed(level, p) >= 0 && !st.hasBlockEntity() && level.getFluidState(p).isEmpty());
+	}
+
+	/** Czasem bot z kilofem schodzi pod ziemię (szyb w dół, potem tunel), wykopuje rudy i wraca na powierzchnię. */
+	private static void maybeStartMine(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		if (s.mine != null || s.foe != null || s.foeP != null || BotBuilder.busy(r.nick) || "G".equals(r.role) || r.partner != null || s.ritual > 0
+				|| RNG.nextInt("B".equals(r.role) ? 120 : 240) != 0) return;
+		double x = m.getX(), z = m.getZ();
+		if (Math.abs(x) < 40 && Math.abs(z) < 50) return;
+		if (!hasPickaxe(r.nick) || isWaterAt(level, x, z)) return;
+		Mine k = new Mine();
+		k.sx = k.x = x;
+		k.sz = k.z = z;
+		k.sy = k.y = m.getY();
+		boolean deep = RNG.nextBoolean(); // połowa wypraw idzie na poziom diamentów (jak zwykły gracz)
+		k.targetY = deep ? -52 - RNG.nextInt(8) : (int) Math.max(-48, k.sy - (20 + RNG.nextInt(35)));
+		if (k.targetY > k.sy - 5) k.targetY = (int) k.sy - 5;
+		k.maxSteps = deep ? 120 : 70;
+		k.dir = RNG.nextInt(4);
+		s.mine = k;
+	}
+
+	private static boolean hasPickaxe(String nick) {
+		SimpleContainer c = inv(nick);
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			if (c.getItem(i).is(net.minecraft.tags.ItemTags.PICKAXES)) return true;
+		}
+		return false;
+	}
+
+	private static void endMine(Mannequin m, State s) {
+		Mine k = s.mine;
+		s.mine = null;
+		s.wait = 0;
+		if (k != null) {
+			m.setPos(k.sx, k.sy, k.sz); // wracają na powierzchnię w to samo miejsce
+			s.tx = k.sx;
+			s.tz = k.sz;
+		}
+	}
+
+	private static void mineStep(ServerLevel level, Rec r, State s) {
+		Mine k = s.mine;
+		Mannequin m = s.entity;
+		if (++k.tick % 10 != 0) {
+			m.setPos(k.x, k.y, k.z);
+			return;
+		}
+		if (k.phase == 0) { // szyb w dół
+			BlockPos below = BlockPos.containing(k.x, k.y - 1, k.z);
+			if (!breakable(level, below) || !breakable(level, below.below()) || !level.getFluidState(below.below()).isEmpty()) {
+				k.phase = 1; // trafił w coś, czego nie rusza: kopie tunel w tym miejscu
+			} else {
+				level.destroyBlock(below, true);
+				k.y -= 1;
+				if (k.y <= k.targetY) k.phase = 1;
+			}
+		} else if (k.phase == 1) { // tunel 1x2
+			int dx = DX[k.dir], dz = DZ[k.dir];
+			BlockPos f1 = BlockPos.containing(k.x + dx, k.y, k.z + dz);
+			BlockPos f2 = f1.above();
+			if (!breakable(level, f1) || !breakable(level, f2) || !breakable(level, f1.below()) || !level.getFluidState(f1.below()).isEmpty()) {
+				k.dir = (k.dir + 1) % 4;
+				if (++k.turns > 8) k.phase = 2;
+			} else {
+				level.destroyBlock(f1, true);
+				level.destroyBlock(f2, true);
+				k.x += dx;
+				k.z += dz;
+				for (int ox = -1; ox <= 1; ox++) {
+					for (int oy = -1; oy <= 2; oy++) {
+						for (int oz = -1; oz <= 1; oz++) {
+							BlockPos o = BlockPos.containing(k.x + ox, k.y + oy, k.z + oz);
+							if (isOre(level.getBlockState(o))) level.destroyBlock(o, true);
+						}
+					}
+				}
+				if (++k.steps >= k.maxSteps) k.phase = 2;
+			}
+		} else {
+			endMine(m, s);
+			return;
+		}
+		m.setPos(k.x, k.y, k.z);
+	}
+
+	/** Gracz kuca 5 razy szybko obok bota: 25% szans na sojusz (bot chodzi za graczem i go broni). */
+	private static void crouchTick(MinecraftServer server) {
+		long t = server.getTickCount();
+		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+			int[] c = CROUCH.computeIfAbsent(p.getUUID(), k -> new int[4]);
+			boolean down = p.isShiftKeyDown();
+			boolean was = c[2] == 1;
+			c[2] = down ? 1 : 0;
+			if (!(down && !was) || t < c[3]) continue;
+			if (c[0] == 0 || t - c[1] > 60) { c[0] = 0; c[1] = (int) t; }
+			c[0]++;
+			if (c[0] < 5) continue;
+			c[0] = 0;
+			String best = null;
+			double bd = 5 * 5;
+			for (Map.Entry<String, State> e : STATES.entrySet()) {
+				Mannequin o = e.getValue().entity;
+				Rec ro = recOf(e.getKey());
+				if (o == null || o.isRemoved() || !o.isAlive() || ro == null || ro.partner != null) continue;
+				double d = o.distanceToSqr(p);
+				if (d < bd) { bd = d; best = e.getKey(); }
+			}
+			if (best == null) continue;
+			c[3] = (int) t + 100; // 5 s przerwy między próbami
+			int mine = 0;
+			String pid = p.getUUID().toString();
+			for (Rec r : ROSTER) if (pid.equals(r.partner)) mine++;
+			if (mine >= 3) {
+				p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Masz już 3 sojuszników-botów.").withStyle(net.minecraft.ChatFormatting.RED));
+				continue;
+			}
+			Rec r = recOf(best);
+			if (RNG.nextDouble() < 0.25) {
+				String pc = playerClan(pid);
+				r.clan = pc != null ? pc : newClanName();
+				r.partner = pid;
+				r.role = null;
+				r.buddy = null;
+				State bst = STATES.get(best);
+				if (bst != null) { // koniec dotychczasowej walki z tym graczem
+					bst.foeP = null;
+					bst.foe = null;
+					bst.retal = false;
+					bst.fight = 0;
+				}
+				save();
+				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(p.getName().getString() + " zawarł sojusz z botem "
+						+ best + "!").withStyle(net.minecraft.ChatFormatting.AQUA), false);
+			} else {
+				p.sendSystemMessage(net.minecraft.network.chat.Component.literal(best + " nie chce sojuszu. Spróbuj ponownie za chwilę.").withStyle(net.minecraft.ChatFormatting.GRAY));
+			}
+		}
+	}
+
+	/** Klan (sojusz) gracza: klan botów, z którymi jest sprzymierzony; null, gdy nie ma. */
+	private static String playerClan(String uuid) {
+		for (Rec r : ROSTER) if (uuid.equals(r.partner) && r.clan != null) return r.clan;
+		return null;
+	}
+
+	/** Obok nicku bota z sojuszem pokazuje [KLAN]: zielony dla członków tego samego sojuszu, niebieski dla pozostałych (osobno dla każdego gracza). */
+	private static void allianceTags(MinecraftServer server) {
+		for (ServerPlayer viewer : server.getPlayerList().getPlayers()) {
+			Map<String, String> seen = SEEN.computeIfAbsent(viewer.getUUID(), k -> new HashMap<>());
+			String mine = playerClan(viewer.getUUID().toString());
+			for (Map.Entry<String, State> e : STATES.entrySet()) {
+				Rec r = recOf(e.getKey());
+				Mannequin m = e.getValue().entity;
+				if (r == null || m == null || m.isRemoved() || r.clan == null) continue;
+				boolean same = mine != null && mine.equals(r.clan);
+				String sn = m.getScoreboardName();
+				String sig = r.clan + "|" + (same ? "g" : "b");
+				if (sig.equals(seen.get(sn))) continue;
+				seen.put(sn, sig);
+				try {
+					net.minecraft.ChatFormatting col = same ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA;
+					net.minecraft.world.scores.PlayerTeam team = new net.minecraft.world.scores.PlayerTeam(server.getScoreboard(), "al_" + r.clan + (same ? "_g" : "_b"));
+					team.setColor(col);
+					team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[" + r.clan + "] ").withStyle(col));
+					team.getPlayers().add(sn); // pakiet tworzenia drużyny od razu zawiera tego bota
+					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, true));
+				} catch (Exception ex) {
+					MyMod.LOGGER.warn("Znacznik sojuszu: {}", ex.toString());
+				}
+			}
+		}
+	}
+
+	public static boolean isGuard(String nick) {
+		for (Rec r : ROSTER) if (r.nick.equals(nick)) return "G".equals(r.role) || r.partner != null;
+		return false;
+	}
+
+	public static boolean isBuilder(String nick) {
+		for (Rec r : ROSTER) if (r.nick.equals(nick)) return "B".equals(r.role);
+		return false;
+	}
+
+	private static Rec recOf(String nick) {
+		for (Rec r : ROSTER) if (r.nick.equals(nick)) return r;
+		return null;
+	}
+
+	private static int clanSize(String clan) {
+		int n = 0;
+		for (Rec r : ROSTER) if (clan.equals(r.clan)) n++;
+		return n;
+	}
+
+	private static String newClanName() {
+		while (true) {
+			StringBuilder sb = new StringBuilder();
+			for (int i = 0; i < 4; i++) sb.append((char) ('A' + RNG.nextInt(26)));
+			sb.append(1 + RNG.nextInt(9));
+			String n = sb.toString();
+			boolean used = false;
+			for (Rec r : ROSTER) if (n.equals(r.clan)) used = true;
+			if (!used) return n;
+		}
+	}
+
+	/** Bot bez sojuszu, który stoi blisko innego wolnego bota, zaczyna rytuał: 5 szybkich kucnięć w jego stronę. */
+	private static void maybeAlly(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		if (s.ritual > 0 || s.foe != null || s.foeP != null || s.mine != null || BotBuilder.busy(r.nick) || RNG.nextInt(40) != 0
+				|| inSpawnArea(m.getX(), m.getZ())) return;
+		for (Map.Entry<String, State> e : STATES.entrySet()) {
+			State os = e.getValue();
+			Mannequin o = os.entity;
+			if (o == null || o == m || o.isRemoved() || !o.isAlive() || os.ritual > 0 || os.foe != null || os.foeP != null
+					|| os.mine != null || BotBuilder.busy(e.getKey())) continue;
+			if (o.distanceToSqr(m) > 36) continue;
+			Rec ro = recOf(e.getKey());
+			if (ro == null || (r.clan != null && ro.clan != null)) continue;
+			String c = r.clan != null ? r.clan : ro.clan;
+			if (c != null && clanSize(c) >= 6) continue;
+			s.ritual = 40;
+			os.ritual = 40;
+			s.ritualWith = e.getKey();
+			os.ritualWith = r.nick;
+			s.lead = true;
+			os.lead = false;
+			return;
+		}
+	}
+
+	/** Zwraca true, gdy bot w tym ticku wykonuje rytuał sojuszu (patrzy na partnera i kuca). */
+	private static boolean ritualStep(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		State ps = s.ritualWith == null ? null : STATES.get(s.ritualWith);
+		Mannequin p = ps == null ? null : ps.entity;
+		if (p == null || p.isRemoved() || !p.isAlive() || s.foe != null || s.foeP != null) {
+			s.ritual = 0;
+			m.setShiftKeyDown(false);
+			return false;
+		}
+		double dx = p.getX() - m.getX(), dz = p.getZ() - m.getZ();
+		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+		m.setYRot(yaw);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		s.ritual--;
+		if (s.ritual % 4 == 0) m.setShiftKeyDown(!m.isShiftKeyDown());
+		if (s.ritual <= 0) {
+			m.setShiftKeyDown(false);
+			if (s.lead) formAlliance(r, recOf(s.ritualWith));
+		}
+		return true;
+	}
+
+	private static void formAlliance(Rec a, Rec b) {
+		if (b == null || (a.clan != null && b.clan != null)) return;
+		boolean aHad = a.clan != null, bHad = b.clan != null;
+		String clan = aHad ? a.clan : bHad ? b.clan : newClanName();
+		a.clan = clan;
+		b.clan = clan;
+		if (!aHad && !bHad) { // pierwsza osoba zbiera i buduje, druga ją chroni
+			boolean aBuilds = RNG.nextBoolean();
+			a.role = aBuilds ? "B" : "G";
+			b.role = aBuilds ? "G" : "B";
+			a.buddy = aBuilds ? null : b.nick;
+			b.buddy = aBuilds ? a.nick : null;
+		} else {
+			Rec joiner = aHad ? b : a;
+			Rec lonely = null;
+			for (Rec x : ROSTER) {
+				if (clan.equals(x.clan) && "B".equals(x.role) && x != joiner) {
+					boolean has = false;
+					for (Rec y : ROSTER) if ("G".equals(y.role) && x.nick.equals(y.buddy)) has = true;
+					if (!has) lonely = x;
+				}
+			}
+			if (lonely != null) {
+				joiner.role = "G";
+				joiner.buddy = lonely.nick;
+			} else {
+				joiner.role = "B";
+				joiner.buddy = null;
+			}
+		}
+		save();
+		if (SRV != null) {
+			SRV.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("[" + clan + "] " + a.nick + " i " + b.nick
+					+ " zawarli sojusz (klan " + clan + ").").withStyle(net.minecraft.ChatFormatting.AQUA), false);
+		}
+	}
+
 	private static boolean inSpawnArea(double x, double z) {
 		return x >= -14 && x <= 15 && z >= -14 && z <= 15;
 	}
@@ -590,13 +1067,19 @@ public final class BotManager {
 	/** Walka bota z innym botem: podchodzi i bije co ok. 0,6 s; siła zależy od poziomu. Zwraca true, gdy walczy w tym ticku. */
 	private static boolean fightStep(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		if (s.foeP != null && r.partner != null && s.foeP.toString().equals(r.partner)) { // sojusznika gracza nie bijemy
+			s.foeP = null;
+			s.retal = false;
+			return false;
+		}
 		net.minecraft.world.entity.LivingEntity f;
 		boolean vsPlayer = s.foeP != null;
 		if (vsPlayer) {
 			f = level.getServer().getPlayerList().getPlayer(s.foeP);
 			if (f == null || f.level() != level || !f.isAlive() || ((ServerPlayer) f).isCreative() || ((ServerPlayer) f).isSpectator()
-					|| --s.fight <= 0 || inSpawnArea(f.getX(), f.getZ()) || f.distanceToSqr(m) > 30 * 30) {
+					|| --s.fight <= 0 || (!s.retal && inSpawnArea(f.getX(), f.getZ())) || f.distanceToSqr(m) > (s.retal ? 60 * 60 : 30 * 30)) {
 				s.foeP = null;
+				s.retal = false;
 				return false;
 			}
 		} else {
@@ -608,26 +1091,41 @@ public final class BotManager {
 				return false;
 			}
 		}
-		if (inSpawnArea(m.getX(), m.getZ()) && vsPlayer) {
+		if (inSpawnArea(m.getX(), m.getZ()) && vsPlayer && !s.retal) {
 			s.foeP = null;
 			return false;
 		}
 		double dx = f.getX() - m.getX(), dz = f.getZ() - m.getZ();
 		double d = Math.sqrt(dx * dx + dz * dz);
 		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-		if (d > 2.0) {
-			double step = Math.min(0.12 + 0.015 * r.level, d - 1.8);
+		// od czasu do czasu podskakują i sprintują
+		if (s.jump > 0) s.jump--; else if (RNG.nextInt(40) == 0) s.jump = 10;
+		if (s.sprintT > 0) s.sprintT--; else if (RNG.nextInt(60) == 0) s.sprintT = 30;
+		boolean sprint = s.sprintT > 0;
+		double jh = s.jump > 0 ? 0.6 * Math.sin(Math.PI * (10 - s.jump) / 10.0) : 0.0;
+		boolean los = m.hasLineOfSight(f); // przez ściany nie biją
+		if (d > 4.0 || !los) {
+			double speed = (0.12 + 0.015 * r.level) * (sprint ? 1.7 : 1.0);
+			double step = Math.max(0.03, Math.min(speed, d - 3.0));
 			double nx = m.getX() + dx / d * step, nz = m.getZ() + dz / d * step;
 			if (level.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) && !isWaterAt(level, nx, nz)) {
 				int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(nx), (int) Math.floor(nz));
-				m.setPos(nx, gy, nz);
+				m.setPos(nx, gy + jh, nz);
 			}
-		} else if (--s.cd <= 0) {
-			s.cd = 12;
-			float dmg = vsPlayer ? (float) (1.0 + r.level * 0.35) : (float) (2.0 + r.level * 0.8);
-			f.hurtServer(level, level.damageSources().mobAttack(m), dmg);
-			if (vsPlayer) Antylogout.tagPlayer((ServerPlayer) f);
-			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			m.setSprinting(sprint);
+		} else {
+			m.setSprinting(false);
+			if (s.jump > 0) {
+				int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(m.getX()), (int) Math.floor(m.getZ()));
+				m.setPos(m.getX(), gy + jh, m.getZ());
+			}
+			if (--s.cd <= 0) {
+				s.cd = 20; // zasięg 4 bloki, jedno uderzenie na sekundę
+				float dmg = vsPlayer ? (float) (1.0 + r.level * 0.35) : (float) (2.0 + r.level * 0.8);
+				f.hurtServer(level, level.damageSources().mobAttack(m), dmg);
+				if (vsPlayer) Antylogout.tagPlayer((ServerPlayer) f);
+				m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			}
 		}
 		m.setYRot(yaw);
 		m.setYHeadRot(yaw);
@@ -643,6 +1141,7 @@ public final class BotManager {
 			double nd = 14 * 14;
 			for (ServerPlayer p : level.players()) {
 				if (!p.isAlive() || p.isCreative() || p.isSpectator() || inSpawnArea(p.getX(), p.getZ())) continue;
+				if (p.getUUID().toString().equals(r.partner)) continue; // sojusznik gracz
 				double d = p.distanceToSqr(m);
 				if (d < nd) { nd = d; near = p; }
 			}
@@ -659,6 +1158,8 @@ public final class BotManager {
 		for (Map.Entry<String, State> e : STATES.entrySet()) {
 			Mannequin o = e.getValue().entity;
 			if (o == null || o == m || o.isRemoved() || !o.isAlive() || inSpawnArea(o.getX(), o.getZ())) continue;
+			String mc = r.clan;
+			if (mc != null && mc.equals(clanOf(e.getKey()))) continue; // sojusznik
 			double dx = o.getX() - m.getX(), dz = o.getZ() - m.getZ();
 			double d = dx * dx + dz * dz;
 			if (d < bd) { bd = d; best = e.getKey(); }
@@ -675,8 +1176,38 @@ public final class BotManager {
 
 	private static void moveBot(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		if (s.ritual > 0 && ritualStep(level, r, s)) return;
 		if ((s.foe != null || s.foeP != null) && fightStep(level, r, s)) return;
+		if (s.mine != null) { mineStep(level, r, s); return; }
 		if (BotBuilder.busy(r.nick)) return; // buduje, stoi w miejscu
+		if (r.partner != null) { // bot sprzymierzony z graczem chodzi za nim
+			ServerPlayer ow = level.getServer().getPlayerList().getPlayer(java.util.UUID.fromString(r.partner));
+			if (ow != null && ow.level() == level && ow.isAlive()) {
+				double ddx = ow.getX() - m.getX(), ddz = ow.getZ() - m.getZ();
+				double dd = ddx * ddx + ddz * ddz;
+				if (dd > 60 * 60) { // za daleko: dołącza do gracza
+					m.setPos(ow.getX() + RNG.nextInt(5) - 2, ow.getY(), ow.getZ() + RNG.nextInt(5) - 2);
+					s.tx = m.getX();
+					s.tz = m.getZ();
+				} else if (dd > 36 || (s.tx - ow.getX()) * (s.tx - ow.getX()) + (s.tz - ow.getZ()) * (s.tz - ow.getZ()) > 64) {
+					s.tx = ow.getX() + RNG.nextInt(7) - 3;
+					s.tz = ow.getZ() + RNG.nextInt(7) - 3;
+					s.wait = 0;
+				}
+			}
+		}
+		if ("G".equals(r.role) && r.buddy != null) { // strażnik trzyma się przy podopiecznym
+			State bs = STATES.get(r.buddy);
+			Mannequin bd = bs == null ? null : bs.entity;
+			if (bd != null && !bd.isRemoved() && bd.isAlive()) {
+				double ddx = s.tx - bd.getX(), ddz = s.tz - bd.getZ();
+				if (ddx * ddx + ddz * ddz > 36) {
+					s.tx = bd.getX() + RNG.nextInt(7) - 3;
+					s.tz = bd.getZ() + RNG.nextInt(7) - 3;
+					s.wait = 0;
+				}
+			}
+		}
 		if (s.wait > 0) { s.wait--; return; }
 		double dx = s.tx - m.getX(), dz = s.tz - m.getZ();
 		double dist = Math.sqrt(dx * dx + dz * dz);
@@ -688,11 +1219,21 @@ public final class BotManager {
 			double nz = m.getZ() + Math.sin(ang) * range * RNG.nextDouble();
 			s.tx = Math.max(-HALF + 1, Math.min(HALF - 1, nx));
 			s.tz = Math.max(-HALF + 1, Math.min(HALF - 1, nz));
+			if (r.clan != null && RNG.nextInt(8) == 0) { // trzymają się razem z sojusznikami
+				for (Map.Entry<String, State> e : STATES.entrySet()) {
+					Mannequin a = e.getValue().entity;
+					if (a != null && a != m && !a.isRemoved() && r.clan.equals(clanOf(e.getKey()))) {
+						s.tx = a.getX() + RNG.nextInt(17) - 8;
+						s.tz = a.getZ() + RNG.nextInt(17) - 8;
+						break;
+					}
+				}
+			}
 			if (RNG.nextInt(25) == 0) { // czasem idą popływać w stawie
 				s.tx = POND_X1 + 1 + RNG.nextDouble() * (POND_X2 - POND_X1 - 2);
 				s.tz = POND_Z1 + 1 + RNG.nextDouble() * (POND_Z2 - POND_Z1 - 2);
 			}
-			s.wait = RNG.nextInt(Math.max(5, 60 - r.level * 5));
+			s.wait = RNG.nextInt(8); // prawie bez postojów: boty nie stoją AFK
 			return;
 		}
 		double speed = 0.10 + 0.015 * r.level; // bloków na tick
