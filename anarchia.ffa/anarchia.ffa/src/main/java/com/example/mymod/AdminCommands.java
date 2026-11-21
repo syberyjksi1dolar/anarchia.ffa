@@ -168,7 +168,7 @@ public final class AdminCommands {
 							items.add(box.getItem(i).copy());
 						}
 					}
-					String err = BotManager.createBot(nick, skin, level, items);
+					String err = BotManager.createBot(nick, skin, level, items, sp.getX(), sp.getY(), sp.getZ());
 					if (err != null) {
 						sp.sendSystemMessage(Component.literal(err).withStyle(ChatFormatting.RED));
 					} else {

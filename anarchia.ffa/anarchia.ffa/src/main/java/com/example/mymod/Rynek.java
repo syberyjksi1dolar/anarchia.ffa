@@ -107,19 +107,8 @@ public final class Rynek {
 		}
 	}
 
-	private static final List<Bot> BOTY = List.of(
-			// Kowalski: solidny rzemieślnik, płaci uczciwie za metale i narzędzia.
-			new Bot("Bot_Kowalski", 1.6, 0.45, 3000, 120, "iron", "copper", "coal", "ingot", "pickaxe", "sword", "shield"),
-			// Zosia: kolekcjonerka, płaci najwięcej, ale rzadko kupuje i tylko rzadkie rzeczy.
-			new Bot("Bot_Zosia", 2.4, 0.15, 6000, 200, "diamond", "emerald", "dragon", "quartz", "lapis", "ominous"),
-			// Gruby: oportunista, bierze tylko okazje (cena prawie jak w skupie), ale ma najgrubszy portfel.
-			new Bot("Bot_Gruby", 1.1, 0.60, 12000, 400),
-			// Alchemik: mikstury, kule i dziwne składniki.
-			new Bot("Bot_Alchemik", 1.9, 0.30, 2500, 90, "potion", "charge", "slime", "breath", "bottle", "redstone", "pufferfish"),
-			// Kapitan: zaopatrzenie wyprawy, drewno, jedzenie, kamień, strzały.
-			new Bot("Bot_Kapitan", 1.4, 0.50, 2000, 100, "log", "apple", "arrow", "cobble", "bucket", "table", "web"),
-			// Szalony: kupuje impulsywnie i potrafi zapłacić krocie, ale ma mały budżet.
-			new Bot("Bot_Szalony", 3.0, 0.20, 800, 60, "tnt", "fire", "charge", "snowball"));
+	/** Dawne boty-kupcy z wirtualnym budżetem wyłączone: handlują teraz boty-gracze (BotRynek). */
+	private static final List<Bot> BOTY = List.of();
 
 	/** Popyt na przedmiot (0,6-1,6): dryfuje w czasie i spada po zakupach. */
 	private static final Map<String, Double> POPYT = new HashMap<>();
@@ -499,7 +488,7 @@ public final class Rynek {
 
 	private static final String[] SPECJALNE = { "Wszystko", "Serca", "Eventówki (stałe)", "Eventówki (zużywalne)", "Przydatne", "Klucze",
 			"Pety", "Potki" };
-	private static final java.util.Set<String> EVENT_ZUZYWALNE = java.util.Set.of("zatopiony_statek", "platek_sniegu",
+	private static final java.util.Set<String> EVENT_ZUZYWALNE = java.util.Set.of("zatopiony_statek", "zloty_bilet", "platek_sniegu",
 			"czerwony_balon", "parasol", "serce", "blok_widmo", "krew_wampira", "cudowna_latarnia", "bomba_maksima",
 			"wampirze_jablko", "jajko_zmutowanego_creepera", "cieple_mleko", "wata_cukrowa", "piernik", "zatruty_trunek",
 			"splesniala_kanapka", "rozgotowana_kukurydza", "kulka_balwana", "perelka_zamianka", "wilk", "dzialko");
@@ -629,12 +618,12 @@ public final class Rynek {
 		long unit = Math.round((double) o.price / (double) o.count);
 		long leftMs = o.created + WAZNOSC_MS - System.currentTimeMillis();
 		List<Component> l = new ArrayList<>();
-		if (RangiManager.isAdminName(o.sellerName)) {
-			l.add(Component.literal("Sprzedający: ").withStyle(st -> st.withItalic(false).withColor(ChatFormatting.GRAY))
-					.append(Component.literal(o.sellerName + " [ADMIN]").withStyle(st -> st.withItalic(false).withBold(true).withColor(ChatFormatting.RED))));
-		} else {
-			l.add(lore("Sprzedający: " + o.sellerName, ChatFormatting.GRAY));
+		Component rangi = RangiManager.sellerRanks(o.seller, o.sellerName);
+		net.minecraft.network.chat.MutableComponent sp = Component.literal("Sprzedający: " + o.sellerName).withStyle(st -> st.withItalic(false).withColor(ChatFormatting.GRAY));
+		if (rangi != null) {
+			sp.append(Component.literal(" ")).append(rangi);
 		}
+		l.add(sp);
 		l.add(lore("Ilość: " + o.count, ChatFormatting.GRAY));
 		l.add(lore("Cena: " + Pieniadze.formatShort(o.price) + " (" + Pieniadze.format(unit) + " za sztukę)", ChatFormatting.GOLD));
 		if (mode == Mode.EXPIRED) {

@@ -28,6 +28,10 @@ public final class Antylogout {
 		return u != null && u > s.getTickCount();
 	}
 
+	public static void tagPlayer(ServerPlayer p) {
+		tag(p);
+	}
+
 	private static void tag(ServerPlayer p) {
 		UNTIL.put(p.getUUID(), p.level().getServer().getTickCount() + SECONDS * 20L);
 	}

@@ -223,7 +223,12 @@ public final class RangiManager {
 			return; // gracz jest w cudzej drużynie, nie ruszamy
 		}
 		int lvl = level(p);
-		String wanted = lvl > 0 ? "rg_" + RANKS[lvl - 1] : (isCreator(p) ? "rg_" + TWORCA : null);
+		boolean creator = isCreator(p);
+		boolean adm = !creator && isAdminPlayer(p);
+		if (adm) {
+			lvl = 0;
+		}
+		String wanted = adm ? "rg_admin" : (lvl > 0 ? "rg_" + RANKS[lvl - 1] : (creator ? "rg_" + TWORCA : null));
 		if (cur != null && (wanted == null || !cur.getName().equals(wanted))) {
 			sb.removePlayerFromTeam(name, cur);
 		}
@@ -234,8 +239,9 @@ public final class RangiManager {
 		if (team == null) {
 			team = sb.addPlayerTeam(wanted);
 		}
-		ChatFormatting color = lvl > 0 ? COLORS[lvl - 1] : ChatFormatting.DARK_PURPLE;
-		Component label = lvl > 0 ? rankName(lvl) : creatorName();
+		ChatFormatting color = adm ? ChatFormatting.RED : (lvl > 0 ? COLORS[lvl - 1] : ChatFormatting.DARK_PURPLE);
+		Component label = adm ? Component.literal("ADMIN").withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+				: (lvl > 0 ? rankName(lvl) : creatorName());
 		team.setColor(color);
 		team.setPlayerPrefix(Component.literal("[").withStyle(ChatFormatting.GRAY).append(label)
 				.append(Component.literal("] ").withStyle(ChatFormatting.GRAY)));
@@ -661,6 +667,19 @@ public final class RangiManager {
 								MyMod.LOGGER.warn("Nie zapisano admina: {}", e.toString());
 							}
 							s.sendSuccess(() -> Component.literal(nick + " jest teraz administratorem."), true);
+							net.minecraft.server.MinecraftServer srv = s.getServer();
+							ServerPlayer tp = srv.getPlayerList().getPlayerByName(nick);
+							if (tp != null) {
+								applyTeam(srv, tp);
+							}
+							Component title = Component.literal("Gracz ").withStyle(ChatFormatting.WHITE)
+									.append(Component.literal(tp != null ? tp.getName().getString() : nick).withStyle(ChatFormatting.YELLOW))
+									.append(Component.literal(" został ").withStyle(ChatFormatting.WHITE))
+									.append(Component.literal("administratorem").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+							for (ServerPlayer o : srv.getPlayerList().getPlayers()) {
+								o.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(10, 70, 20));
+								o.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(title));
+							}
 							return 1;
 						})));
 		d.register(Commands.literal("dajrange")

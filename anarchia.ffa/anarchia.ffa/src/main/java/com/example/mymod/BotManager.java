@@ -76,6 +76,10 @@ public final class BotManager {
 		double lx, ly, lz;
 		boolean first = true;
 		int act;
+		String foe;
+		java.util.UUID foeP;
+		int fight;
+		int cd;
 	}
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -83,6 +87,8 @@ public final class BotManager {
 	private static final List<Rec> ROSTER = new ArrayList<>();
 	private static final Map<String, State> STATES = new HashMap<>();
 	private static boolean cleaned;
+	/** Miejsce pojawienia się nowo stworzonego bota (tam, gdzie stał admin). */
+	private static final Map<String, double[]> PENDING = new HashMap<>();
 	private static final Map<String, SimpleContainer> INV = new HashMap<>();
 	/** Saldo startowe bota na poziom (w groszach): poziom * 50 zł. Zmień tu, jeśli ma być inaczej. */
 	private static final long FUNDS_PER_LEVEL = 5000;
@@ -128,7 +134,7 @@ public final class BotManager {
 	}
 
 	/** Tworzy nowego bota (z /stwórz). Zwraca komunikat błędu albo null, gdy się udało. */
-	public static String createBot(String nick, String skin, int level, List<ItemStack> items) {
+	public static String createBot(String nick, String skin, int level, List<ItemStack> items, double px, double py, double pz) {
 		for (Rec r : ROSTER) if (r.nick.equalsIgnoreCase(nick)) return "Bot o takim nicku już istnieje.";
 		Rec r = new Rec();
 		r.nick = nick;
@@ -136,6 +142,7 @@ public final class BotManager {
 		r.level = Math.max(1, Math.min(10, level));
 		r.kit = true; // admin sam dał przedmioty
 		ROSTER.add(r);
+		PENDING.put(nick, new double[] {px, py, pz});
 		SimpleContainer c = inv(nick);
 		for (ItemStack s : items) addStack(c, s);
 		save();
@@ -194,6 +201,12 @@ public final class BotManager {
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> saveInv());
 		ServerTickEvents.END_SERVER_TICK.register(BotManager::tick);
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (entity instanceof Mannequin m && isBot(m) && source.getEntity() instanceof ServerPlayer
+					&& entity.level() instanceof ServerLevel lv && RNG.nextDouble() < 0.03) {
+				dropBook(lv, m);
+			}
+		});
 	}
 
 	// ---------- roster ----------
@@ -261,6 +274,7 @@ public final class BotManager {
 				MyMod.LOGGER.warn("Czyszczenie botów: {}", e.toString());
 			}
 			STATES.clear();
+			provision();
 		}
 		long t = server.getTickCount();
 		for (Rec r : ROSTER) {
@@ -275,6 +289,8 @@ public final class BotManager {
 					dropAll(level, r, s); // śmierć: ekwipunek wypada na ziemię
 				}
 				s.entity = null;
+				s.foe = null;
+				s.foeP = null;
 				if (--s.respawnIn <= 0) {
 					spawn(server, level, r, s);
 					s.respawnIn = 100; // ponowna próba po 5 s, jeśli się nie udało
@@ -285,7 +301,10 @@ public final class BotManager {
 			s.ly = s.entity.getY();
 			s.lz = s.entity.getZ();
 			moveBot(level, r, s);
-			if (t % 10 == 0) activity(level, r, s);
+			if (t % 10 == 0) {
+				activity(level, r, s);
+				maybeStartFight(level, r, s);
+			}
 		}
 		if (t % 10 == 0) drawBorder(level);
 		if (t % 100 == 50) {
@@ -296,16 +315,21 @@ public final class BotManager {
 
 	private static void spawn(MinecraftServer server, ServerLevel level, Rec r, State s) {
 		double x = SPAWN_X + RNG.nextInt(7) - 3, z = SPAWN_Z + RNG.nextInt(7) - 3;
-		if (s.first) {
-			// pierwsze pojawienie: rozrzut po okolicy (tylko tam, gdzie teren jest załadowany)
-			double ax = RNG.nextInt(121) - 60, az = RNG.nextInt(121) - 60;
-			if (level.hasChunkAt(new BlockPos((int) ax, 64, (int) az)) && !(Math.abs(ax) < 14 && Math.abs(az) < 14)) {
-				x = ax + 0.5;
-				z = az + 0.5;
-			}
-			s.first = false;
+		s.first = false;
+		double[] spot = pickSpot(level, r.nick);
+		if (spot != null) { // każdy bot pojawia się osobno, w innym miejscu
+			x = spot[0];
+			z = spot[1];
 		}
-		final double sy = Math.max(SPAWN_Y, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z)));
+		double[] pend = PENDING.remove(r.nick);
+		if (pend != null) {
+			x = pend[0];
+			z = pend[2];
+		} else if (isWaterAt(level, x, z)) { // nie pojawiamy się na wodzie (boty nie umieją pływać)
+			x = SPAWN_X + RNG.nextInt(7) - 3;
+			z = SPAWN_Z + RNG.nextInt(7) - 3;
+		}
+		final double sy = pend != null ? pend[1] : Math.max(SPAWN_Y, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z)));
 		String base = "summon minecraft:mannequin " + x + " " + sy + " " + z
 				+ " {CustomName:\"" + r.nick + "\",CustomNameVisible:1b,Tags:[\"" + TAG + "\"],hide_description:1b,";
 		boolean stock = false;
@@ -349,6 +373,23 @@ public final class BotManager {
 	}
 
 	private static void dropAll(ServerLevel level, Rec r, State s) {
+		r.kit = false; // po śmierci bot dostaje nowy starter pack przy kolejnym pojawieniu się
+		Mannequin dead = s.entity;
+		if (dead != null) {
+			net.minecraft.world.entity.EquipmentSlot[] all = {net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.entity.EquipmentSlot.HEAD,
+					net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+			for (net.minecraft.world.entity.EquipmentSlot sl : all) {
+				try {
+					ItemStack w = dead.getItemBySlot(sl);
+					if (!w.isEmpty()) {
+						level.addFreshEntity(new ItemEntity(level, s.lx, s.ly + 0.5, s.lz, w.copy()));
+						dead.setItemSlot(sl, ItemStack.EMPTY);
+					}
+				} catch (Exception e) {
+					MyMod.LOGGER.warn("Wyrzucanie ubioru bota: {}", e.toString());
+				}
+			}
+		}
 		SimpleContainer c = inv(r.nick);
 		for (int i = 0; i < c.getContainerSize(); i++) {
 			ItemStack st = c.removeItemNoUpdate(i);
@@ -401,6 +442,27 @@ public final class BotManager {
 		}
 	}
 
+	/** Każdy bot dostaje zestaw i pieniądze od razu (nie dopiero po pojawieniu się), żeby od startu miał co sprzedawać i za co kupować. */
+	private static void provision() {
+		boolean ch = false;
+		for (Rec r : ROSTER) {
+			if (!r.kit) {
+				r.kit = true;
+				giveKit(r);
+				ch = true;
+			}
+			if (!r.funded) {
+				r.funded = true;
+				Pieniadze.addAll(Map.of("bot:" + r.nick, FUNDS_PER_LEVEL * r.level));
+				ch = true;
+			}
+		}
+		if (ch) {
+			save();
+			saveInv();
+		}
+	}
+
 	/** Jednorazowy zestaw startowy zależny od poziomu (trafia do ekwipunku, bot może to sprzedać). */
 	private static void giveKit(Rec r) {
 		SimpleContainer c = inv(r.nick);
@@ -419,26 +481,54 @@ public final class BotManager {
 		if (l >= 6) c.addItem(new ItemStack(Items.DIAMOND, l - 4));
 		if (l >= 8) c.addItem(new ItemStack(Items.EMERALD, l - 5));
 		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 2));
+		// starter pack: miecz i zbroja zależne od poziomu (prawdziwe przedmioty)
+		c.addItem(new ItemStack(swordFor(l)));
+		for (Item a : armorFor(l)) c.addItem(new ItemStack(a));
 	}
 
-	/** Ubiór bota (tylko wygląd, nie jest przedmiotem w ekwipunku i nie wypada po śmierci). */
+	private static Item swordFor(int l) {
+		return l >= 10 ? Items.NETHERITE_SWORD : l >= 7 ? Items.DIAMOND_SWORD : l >= 4 ? Items.IRON_SWORD : l >= 2 ? Items.STONE_SWORD : Items.WOODEN_SWORD;
+	}
+
+	private static Item[] armorFor(int l) {
+		if (l >= 10) return new Item[] {Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS};
+		if (l >= 7) return new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS};
+		if (l >= 4) return new Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS};
+		if (l >= 2) return new Item[] {Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS};
+		return new Item[0];
+	}
+
+	private static final net.minecraft.world.entity.EquipmentSlot[] ARMOR_SLOTS = {net.minecraft.world.entity.EquipmentSlot.HEAD,
+			net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+
+	/** Zakłada na bota miecz i zbroję, zabierając je z jego ekwipunku (to prawdziwe przedmioty, wypadają po śmierci). */
 	private static void equip(Mannequin m, Rec r) {
-		int l = r.level;
-		Item sword = l >= 10 ? Items.NETHERITE_SWORD : l >= 7 ? Items.DIAMOND_SWORD : l >= 4 ? Items.IRON_SWORD : l >= 2 ? Items.STONE_SWORD : Items.WOODEN_SWORD;
-		Item[] armor;
-		if (l >= 10) armor = new Item[] {Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS};
-		else if (l >= 7) armor = new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS};
-		else if (l >= 4) armor = new Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS};
-		else if (l >= 2) armor = new Item[] {Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS};
-		else armor = new Item[0];
+		SimpleContainer c = inv(r.nick);
 		try {
-			m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(sword));
-			net.minecraft.world.entity.EquipmentSlot[] sl = {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
-					net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
-			for (int i = 0; i < armor.length; i++) m.setItemSlot(sl[i], new ItemStack(armor[i]));
+			ItemStack sw = takeOne(c, swordFor(r.level));
+			if (!sw.isEmpty()) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, sw);
+			Item[] armor = armorFor(r.level);
+			for (int i = 0; i < armor.length; i++) {
+				ItemStack a = takeOne(c, armor[i]);
+				if (!a.isEmpty()) m.setItemSlot(ARMOR_SLOTS[i], a);
+			}
 		} catch (Exception e) {
 			MyMod.LOGGER.warn("Ubiór bota {}: {}", r.nick, e.toString());
 		}
+	}
+
+	private static ItemStack takeOne(SimpleContainer c, Item it) {
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack s = c.getItem(i);
+			if (s.is(it)) {
+				ItemStack one = s.copyWithCount(1);
+				s.shrink(1);
+				if (s.isEmpty()) c.setItem(i, ItemStack.EMPTY);
+				c.setChanged();
+				return one;
+			}
+		}
+		return ItemStack.EMPTY;
 	}
 
 	private static boolean inPond(double x, double z) {
@@ -456,8 +546,99 @@ public final class BotManager {
 		return false;
 	}
 
+	private static boolean inSpawnArea(double x, double z) {
+		return x >= -14 && x <= 15 && z >= -14 && z <= 15;
+	}
+
+	/** Walka bota z innym botem: podchodzi i bije co ok. 0,6 s; siła zależy od poziomu. Zwraca true, gdy walczy w tym ticku. */
+	private static boolean fightStep(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		net.minecraft.world.entity.LivingEntity f;
+		boolean vsPlayer = s.foeP != null;
+		if (vsPlayer) {
+			f = level.getServer().getPlayerList().getPlayer(s.foeP);
+			if (f == null || f.level() != level || !f.isAlive() || ((ServerPlayer) f).isCreative() || ((ServerPlayer) f).isSpectator()
+					|| --s.fight <= 0 || inSpawnArea(f.getX(), f.getZ()) || f.distanceToSqr(m) > 30 * 30) {
+				s.foeP = null;
+				return false;
+			}
+		} else {
+			State fs = STATES.get(s.foe);
+			f = fs == null ? null : fs.entity;
+			if (f == null || f.isRemoved() || !f.isAlive() || --s.fight <= 0 || inSpawnArea(m.getX(), m.getZ())
+					|| inSpawnArea(f.getX(), f.getZ()) || inPond(f.getX(), f.getZ())) {
+				s.foe = null;
+				return false;
+			}
+		}
+		if (inSpawnArea(m.getX(), m.getZ()) && vsPlayer) {
+			s.foeP = null;
+			return false;
+		}
+		double dx = f.getX() - m.getX(), dz = f.getZ() - m.getZ();
+		double d = Math.sqrt(dx * dx + dz * dz);
+		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+		if (d > 2.0) {
+			double step = Math.min(0.12 + 0.015 * r.level, d - 1.8);
+			double nx = m.getX() + dx / d * step, nz = m.getZ() + dz / d * step;
+			if (level.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) && !isWaterAt(level, nx, nz)) {
+				int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(nx), (int) Math.floor(nz));
+				m.setPos(nx, gy, nz);
+			}
+		} else if (--s.cd <= 0) {
+			s.cd = 12;
+			float dmg = vsPlayer ? (float) (1.0 + r.level * 0.35) : (float) (2.0 + r.level * 0.8);
+			f.hurtServer(level, level.damageSources().mobAttack(m), dmg);
+			if (vsPlayer) Antylogout.tagPlayer((ServerPlayer) f);
+			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+		}
+		m.setYRot(yaw);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		return true;
+	}
+
+	/** Czasem bot zaczepia najbliższego bota w pobliżu (poza spawnem i stawem) i zaczyna się bójka. */
+	private static void maybeStartFight(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		if (s.foeP == null && !inSpawnArea(m.getX(), m.getZ()) && !inPond(m.getX(), m.getZ())) {
+			ServerPlayer near = null;
+			double nd = 14 * 14;
+			for (ServerPlayer p : level.players()) {
+				if (!p.isAlive() || p.isCreative() || p.isSpectator() || inSpawnArea(p.getX(), p.getZ())) continue;
+				double d = p.distanceToSqr(m);
+				if (d < nd) { nd = d; near = p; }
+			}
+			if (near != null) { // boty są agresywne wobec graczy
+				s.foeP = near.getUUID();
+				s.foe = null;
+				s.fight = 600;
+				return;
+			}
+		}
+		if (s.foe != null || s.foeP != null || RNG.nextInt(20) != 0 || inSpawnArea(m.getX(), m.getZ()) || inPond(m.getX(), m.getZ())) return;
+		String best = null;
+		double bd = 15 * 15;
+		for (Map.Entry<String, State> e : STATES.entrySet()) {
+			Mannequin o = e.getValue().entity;
+			if (o == null || o == m || o.isRemoved() || !o.isAlive() || inSpawnArea(o.getX(), o.getZ())) continue;
+			double dx = o.getX() - m.getX(), dz = o.getZ() - m.getZ();
+			double d = dx * dx + dz * dz;
+			if (d < bd) { bd = d; best = e.getKey(); }
+		}
+		if (best == null) return;
+		s.foe = best;
+		s.fight = 400;
+		State other = STATES.get(best);
+		if (other.foe == null) { // zaczepiony oddaje
+			other.foe = r.nick;
+			other.fight = 400;
+		}
+	}
+
 	private static void moveBot(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		if ((s.foe != null || s.foeP != null) && fightStep(level, r, s)) return;
 		if (BotBuilder.busy(r.nick)) return; // buduje, stoi w miejscu
 		if (s.wait > 0) { s.wait--; return; }
 		double dx = s.tx - m.getX(), dz = s.tz - m.getZ();
