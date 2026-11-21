@@ -172,6 +172,32 @@ public final class RangiManager {
 		return ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));
 	}
 
+	/** Podpis rang sprzedawcy (np. "[ADMIN] [TWÓRCA]") do opisu oferty; null, gdy nie ma żadnej rangi. */
+	public static Component sellerRanks(String sellerId, String nick) {
+		net.minecraft.network.chat.MutableComponent out = null;
+		if (isAdminName(nick)) {
+			out = Component.literal("[ADMIN]").withStyle(st -> st.withItalic(false).withBold(true).withColor(ChatFormatting.RED));
+		}
+		Data d = sellerId == null ? null : DATA.get(sellerId);
+		if (d != null && d.rank != null && !d.rank.isEmpty()) {
+			Component r = null;
+			if (TWORCA.equals(d.rank)) {
+				r = Component.literal("[TWÓRCA]").withStyle(st -> st.withItalic(false).withBold(true).withColor(RGB_TWORCA));
+			} else {
+				for (int i = 0; i < RANKS.length; i++) {
+					if (RANKS[i].equals(d.rank)) {
+						final int rgb = RGB[i];
+						r = Component.literal("[" + RANKS[i].toUpperCase(Locale.ROOT) + "]").withStyle(st -> st.withItalic(false).withBold(true).withColor(rgb));
+					}
+				}
+			}
+			if (r != null) {
+				out = out == null ? Component.empty().append(r) : out.append(Component.literal(" ")).append(r);
+			}
+		}
+		return out;
+	}
+
 	/** Czy nick należy do administratora (np. do podpisu sprzedawcy na rynku). */
 	public static boolean isAdminName(String nick) {
 		return nick != null && ADMINS.contains(nick.toLowerCase(Locale.ROOT));
@@ -179,7 +205,7 @@ public final class RangiManager {
 
 	private static boolean isAdmin(CommandSourceStack s) {
 		ServerPlayer p = s.getPlayer();
-		return p == null || ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT));
+		return p == null || ADMINS.contains(p.getName().getString().toLowerCase(Locale.ROOT)) || isCreator(p);
 	}
 
 	/** Ranga nad głową, w tabie i przy nicku: drużyna scoreboardu z prefiksem [RANGA]. */
