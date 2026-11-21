@@ -531,6 +531,43 @@ public final class BotManager {
 		return ItemStack.EMPTY;
 	}
 
+	/** 3% szansy po zabiciu bota przez gracza: wypada jedna losowa księga ze wszystkich. */
+	private static void dropBook(ServerLevel lv, Mannequin m) {
+		List<Item> books = new ArrayList<>();
+		for (Item it : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+			net.minecraft.resources.Identifier id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(it);
+			if ("mymod".equals(id.getNamespace()) && id.getPath().startsWith("ksiega_")) books.add(it);
+		}
+		if (books.isEmpty()) return;
+		Item pick = books.get(RNG.nextInt(books.size()));
+		lv.addFreshEntity(new ItemEntity(lv, m.getX(), m.getY() + 0.5, m.getZ(), new ItemStack(pick)));
+	}
+
+	/** Losuje miejsce na lądzie w załadowanym terenie, min. 20 bloków od innych botów i poza spawnem; null = brak. */
+	private static double[] pickSpot(ServerLevel level, String self) {
+		for (int tries = 0; tries < 40; tries++) {
+			double ax = RNG.nextInt(401) - 200 + 0.5, az = RNG.nextInt(401) - 200 + 0.5;
+			if (Math.abs(ax) < 14 && Math.abs(az) < 14) continue;
+			if (!level.hasChunkAt(new BlockPos((int) ax, 64, (int) az))) continue;
+			if (isWaterAt(level, ax, az)) continue;
+			boolean close = false;
+			for (Map.Entry<String, State> e : STATES.entrySet()) {
+				Mannequin o = e.getValue().entity;
+				if (o == null || o.isRemoved() || e.getKey().equals(self)) continue;
+				double dx = o.getX() - ax, dz = o.getZ() - az;
+				if (dx * dx + dz * dz < 400) { close = true; break; }
+			}
+			if (!close) return new double[] {ax, az};
+		}
+		return null;
+	}
+
+	private static boolean isWaterAt(ServerLevel level, double x, double z) {
+		int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
+		int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+		return level.getFluidState(new BlockPos(bx, gy - 1, bz)).is(net.minecraft.tags.FluidTags.WATER);
+	}
+
 	private static boolean inPond(double x, double z) {
 		return x >= POND_X1 && x <= POND_X2 && z >= POND_Z1 && z <= POND_Z2;
 	}
