@@ -27,7 +27,7 @@ public final class Pieniadze {
 	}
 
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_pieniadze.json");
+		return WorldData.file("anarchia_ffa_pieniadze.json");
 	}
 
 	public static long get(ServerPlayer p) {

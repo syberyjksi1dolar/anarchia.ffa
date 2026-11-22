@@ -60,6 +60,7 @@ public class MyMod implements ModInitializer {
 		ArcusMagnusItem.initialize();
 		SilaczHandler.initialize();
 		DolarHandler.initialize();
+		WorldData.initialize();
 		BotManager.initialize();
 		Inkognito.initialize();
 		AdminCommands.initialize();

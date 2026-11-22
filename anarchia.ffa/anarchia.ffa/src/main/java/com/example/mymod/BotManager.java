@@ -120,11 +120,11 @@ public final class BotManager {
 	private static final int POND_X1 = -11, POND_X2 = 11, POND_Z1 = 13, POND_Z2 = 35;
 
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_boty.json");
+		return WorldData.file("anarchia_ffa_boty.json");
 	}
 
 	private static Path invFile() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_boty_ekw.json");
+		return WorldData.file("anarchia_ffa_boty_ekw.json");
 	}
 
 	// ---------- API ekwipunku ----------
@@ -228,9 +228,10 @@ public final class BotManager {
 	}
 
 	public static void initialize() {
-		loadOrCreate();
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			cleaned = false;
+			STATES.clear();
+			loadOrCreate();
 			loadInv();
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> saveInv());
@@ -614,7 +615,16 @@ public final class BotManager {
 	/** Zestaw startowy bota (większy niż wcześniej); przy pierwszym pojawieniu dochodzi losowa eventówka. */
 	private static void giveKit(Rec r) {
 		SimpleContainer c = inv(r.nick);
-		int l = r.level;
+		fillKit(c, r.level);
+		if (!r.event) { // pierwszy raz: jedna losowa eventówka
+			r.event = true;
+			Item ev = Rynek.randomEventItem();
+			if (ev != null) c.addItem(new ItemStack(ev));
+		}
+	}
+
+	/** Zestaw startowy zależny od poziomu 1-10 (używany też dla graczy przy pierwszym wejściu). */
+	public static void fillKit(SimpleContainer c, int l) {
 		c.addItem(new ItemStack(Items.BREAD, 10 + l * 3));
 		c.addItem(new ItemStack(Items.COOKED_BEEF, 4 + l * 2));
 		c.addItem(new ItemStack(Items.COBBLESTONE, 32 + l * 8));
@@ -657,11 +667,6 @@ public final class BotManager {
 		c.addItem(new ItemStack(swordFor(l)));
 		c.addItem(new ItemStack(pickFor(l)));
 		for (Item a : armorFor(l)) c.addItem(new ItemStack(a));
-		if (!r.event) { // pierwszy raz: jedna losowa eventówka
-			r.event = true;
-			Item ev = Rynek.randomEventItem();
-			if (ev != null) c.addItem(new ItemStack(ev));
-		}
 	}
 
 	private static Item pickFor(int l) {

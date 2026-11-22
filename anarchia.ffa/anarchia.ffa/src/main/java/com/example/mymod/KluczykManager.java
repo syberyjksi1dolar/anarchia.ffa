@@ -55,15 +55,18 @@ public final class KluczykManager {
 	}
 
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_dk.txt");
+		return WorldData.file("anarchia_ffa_dk.txt");
 	}
 
 	public static void initialize() {
-		try {
-			if (Files.exists(file())) lastAuto = Files.readString(file(), StandardCharsets.UTF_8).trim();
-		} catch (IOException e) {
-			MyMod.LOGGER.warn("DK: nie wczytano: {}", e.toString());
-		}
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+			lastAuto = "";
+			try {
+				if (Files.exists(file())) lastAuto = Files.readString(file(), StandardCharsets.UTF_8).trim();
+			} catch (IOException e) {
+				MyMod.LOGGER.warn("DK: nie wczytano: {}", e.toString());
+			}
+		});
 		ServerTickEvents.END_SERVER_TICK.register(KluczykManager::tick);
 		CommandRegistrationCallback.EVENT.register((d, reg, env) -> d.register(Commands.literal("DK")
 				.then(Commands.argument("argumenty", StringArgumentType.greedyString()).executes(ctx -> {

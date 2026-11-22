@@ -23,7 +23,7 @@ public final class StartGift {
 	private static final Set<String> GOT = new HashSet<>();
 
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_start.txt");
+		return WorldData.file("anarchia_ffa_start2.txt");
 	}
 
 	public static void initialize() {
@@ -50,7 +50,13 @@ public final class StartGift {
 			}
 			ItemStack st = new ItemStack(it);
 			if (!p.getInventory().add(st)) p.drop(st, false);
-			p.sendSystemMessage(Component.literal("Dostałeś losową eventówkę: ").withStyle(ChatFormatting.GOLD)
+			net.minecraft.world.SimpleContainer kit = new net.minecraft.world.SimpleContainer(54);
+			BotManager.fillKit(kit, 4); // zestaw startowy: żelazny ekwipunek, jedzenie, materiały
+			for (int i = 0; i < kit.getContainerSize(); i++) {
+				ItemStack k = kit.getItem(i);
+				if (!k.isEmpty() && !p.getInventory().add(k)) p.drop(k, false);
+			}
+			p.sendSystemMessage(Component.literal("Dostałeś zestaw startowy i losową eventówkę: ").withStyle(ChatFormatting.GOLD)
 					.append(st.getHoverName()));
 		});
 	}

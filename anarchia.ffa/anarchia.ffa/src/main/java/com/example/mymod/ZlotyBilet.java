@@ -111,7 +111,7 @@ public final class ZlotyBilet {
 
 	// ---------- harmonogram ----------
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_bilet.json");
+		return WorldData.file("anarchia_ffa_bilet.json");
 	}
 
 	private static void load() {
@@ -134,7 +134,7 @@ public final class ZlotyBilet {
 	}
 
 	public static void initialize() {
-		load();
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> load());
 		ServerTickEvents.END_SERVER_TICK.register(ZlotyBilet::tick);
 	}
 

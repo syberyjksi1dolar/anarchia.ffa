@@ -58,7 +58,7 @@ public final class StatsSidebar {
 	}
 
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_statystyki.json");
+		return WorldData.file("anarchia_ffa_statystyki.json");
 	}
 
 	private static void load() {

@@ -117,7 +117,7 @@ public final class Rynek {
 	}
 
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("anarchia_ffa_rynek.json");
+		return WorldData.file("anarchia_ffa_rynek.json");
 	}
 
 	private static void load() {
