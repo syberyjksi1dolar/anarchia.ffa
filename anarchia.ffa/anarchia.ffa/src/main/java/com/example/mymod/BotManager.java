@@ -578,8 +578,8 @@ public final class BotManager {
 			for (net.minecraft.world.entity.EquipmentSlot sl : all) {
 				try {
 					ItemStack w = dead.getItemBySlot(sl);
-					if (!w.isEmpty()) { // noszony ubiór wraca do ekwipunku (bot go nie traci)
-						inv(r.nick).addItem(w.copy());
+					if (!w.isEmpty()) { // noszony ubiór też wypada
+						level.addFreshEntity(new ItemEntity(level, s.lx, s.ly + 0.5, s.lz, w.copy()));
 						dead.setItemSlot(sl, ItemStack.EMPTY);
 					}
 				} catch (Exception e) {
@@ -588,14 +588,13 @@ public final class BotManager {
 			}
 		}
 		SimpleContainer c = inv(r.nick);
-		for (int i = 0; i < c.getContainerSize(); i++) { // tylko eventówki wypadają, reszta zostaje botowi
-			ItemStack st = c.getItem(i);
-			if (!st.isEmpty() && Rynek.isEventItem(st.getItem())) {
-				c.removeItemNoUpdate(i);
+		for (int i = 0; i < c.getContainerSize(); i++) { // cały ekwipunek (kit, eventówki, materiały) wypada na ziemię
+			ItemStack st = c.removeItemNoUpdate(i);
+			if (!st.isEmpty()) {
 				level.addFreshEntity(new ItemEntity(level, s.lx, s.ly + 0.5, s.lz, st));
 			}
 		}
-		fillKit(c, 1 + RNG.nextInt(10)); // odradza się z nowym, innym kitem
+		fillKit(c, 1 + RNG.nextInt(10)); // odradza się z nowym, innym kitem (bez eventówki)
 		saveInv();
 	}
 
@@ -1368,7 +1367,7 @@ public final class BotManager {
 			double nx = m.getX() + dx / d * step, nz = m.getZ() + dz / d * step;
 			if (level.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) && !isWaterAt(level, nx, nz)) {
 				double wy = walkY(level, m.getY(), (int) Math.floor(nx), (int) Math.floor(nz));
-				if (Double.isNaN(wy)) clearObstacle(level, m, nx, nz); // drzewo na drodze: wycina je zamiast wchodzić na szczyt
+				if (Double.isNaN(wy) || !free(level, m, nx, wy, nz)) clearObstacle(level, m, nx, nz); // drzewo na drodze: wycina je zamiast wchodzić w nie
 				else m.setPos(nx, wy + jh, nz);
 			}
 			m.setSprinting(sprint);
@@ -1382,7 +1381,7 @@ public final class BotManager {
 				double sd = s.strafe ? 1 : -1;
 				double sx = m.getX() + (-dz / d) * 0.05 * sd, sz = m.getZ() + (dx / d) * 0.05 * sd;
 				double sy2 = walkY(level, m.getY(), (int) Math.floor(sx), (int) Math.floor(sz));
-				if (!Double.isNaN(sy2) && !isWaterAt(level, sx, sz)) m.setPos(sx, sy2 + jh, sz);
+				if (!Double.isNaN(sy2) && !isWaterAt(level, sx, sz) && free(level, m, sx, sy2, sz)) m.setPos(sx, sy2 + jh, sz);
 			}
 			if (--s.cd <= 0) {
 				s.cd = 12; // jak gracz z mieczem: zasięg 3 bloki, uderzenie co 0,6 s
@@ -1481,7 +1480,7 @@ public final class BotManager {
 			double nx = m.getX() + dx / d * step, nz = m.getZ() + dz / d * step;
 			if (level.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) && !isWaterAt(level, nx, nz)) {
 				double wy = walkY(level, m.getY(), (int) Math.floor(nx), (int) Math.floor(nz));
-				if (Double.isNaN(wy)) clearObstacle(level, m, nx, nz);
+				if (Double.isNaN(wy) || !free(level, m, nx, wy, nz)) clearObstacle(level, m, nx, nz);
 				else m.setPos(nx, wy, nz);
 			}
 			return true;
@@ -1546,7 +1545,7 @@ public final class BotManager {
 				double nx = e.getX() + ux * k, nz = e.getZ() + uz * k;
 				if (!lv.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) || isWaterAt(lv, nx, nz)) continue;
 				double wy = walkY(lv, e.getY(), (int) Math.floor(nx), (int) Math.floor(nz));
-				if (!Double.isNaN(wy)) {
+				if (!Double.isNaN(wy) && free(lv, (Mannequin) e, nx, wy, nz)) {
 					e.setPos(nx, wy, nz);
 					return;
 				}
@@ -1576,7 +1575,7 @@ public final class BotManager {
 			return;
 		}
 		double wy = walkY(level, m.getY(), (int) Math.floor(nx), (int) Math.floor(nz));
-		if (Double.isNaN(wy)) {
+		if (Double.isNaN(wy) || !free(level, m, nx, wy, nz)) {
 			s.tx = m.getX();
 			s.tz = m.getZ();
 			return;
@@ -1586,6 +1585,12 @@ public final class BotManager {
 		m.setYRot(yaw);
 		m.setYHeadRot(yaw);
 		m.setYBodyRot(yaw);
+	}
+
+	/** Czy ciało bota zmieści się w nowym miejscu bez wchodzenia w bloki (jak gracz, który nie przechodzi przez ściany). */
+	private static boolean free(ServerLevel level, Mannequin m, double nx, double wy, double nz) {
+		net.minecraft.world.phys.AABB b = m.getBoundingBox().move(nx - m.getX(), wy - m.getY(), nz - m.getZ()).deflate(0.001);
+		return level.noCollision(m, b);
 	}
 
 	/** Wysokość podłoża w kolumnie x,z, na którą bot może wejść (stopień do 1 bloku w górę, spadek do 3 w dół); NaN, gdy coś blokuje drogę. */
@@ -1736,7 +1741,7 @@ public final class BotManager {
 			m.setSwimming(true);
 		} else {
 			double wy = walkY(level, m.getY(), (int) Math.floor(nx), (int) Math.floor(nz));
-			if (Double.isNaN(wy)) { // przeszkoda (np. drzewo): wycina ją albo ją omija, zamiast wskakiwać na szczyt
+			if (Double.isNaN(wy) || !free(level, m, nx, wy, nz)) { // przeszkoda (np. drzewo): wycina ją albo ją omija, zamiast wskakiwać na szczyt
 				if (!clearObstacle(level, m, nx, nz)) sidestep(m, s, dx, dz);
 				else s.wait = 6;
 				return;
