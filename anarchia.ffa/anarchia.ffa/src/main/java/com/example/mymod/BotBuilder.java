@@ -72,15 +72,18 @@ final class BotBuilder {
 		int bx = (int) Math.floor(m.getX()), bz = (int) Math.floor(m.getZ());
 		if (j == null) {
 			if (BotManager.isGuard(nick)) return false; // strażnik nie buduje
-			if (RNG.nextInt(BotManager.isBuilder(nick) ? 1 : 2) != 0) return false;
 			double[] slot = BotManager.plotSlot(nick); // działka bota (posesja wokół jego pierwszego spawnu)
 			if (slot == null) return false;
 			List<Integer> kinds = new ArrayList<>();
 			int wall = countWall(inv), cob = count(inv, Items.COBBLESTONE), seeds = count(inv, Items.WHEAT_SEEDS);
-			if (wall >= 71) kinds.add(0);
-			if (seeds >= 8 && count(inv, Items.WATER_BUCKET) >= 1) kinds.add(1);
+			if (wall >= 45) { kinds.add(0); kinds.add(0); kinds.add(0); } // domy najczęściej
+			if (seeds >= 8 && count(inv, Items.WATER_BUCKET) >= 1) { kinds.add(1); kinds.add(1); }
 			if (cob >= 80) kinds.add(2);
 			if (cob >= 84) kinds.add(3);
+			if (cob >= 70) { kinds.add(4); kinds.add(4); }
+			if (cob >= 140) { kinds.add(5); kinds.add(5); }
+			if (cob >= 160) kinds.add(6);
+			if (cob >= 10) { kinds.add(7); kinds.add(7); }
 			if (kinds.isEmpty()) return false;
 			double ddx = slot[0] - m.getX(), ddz = slot[1] - m.getZ();
 			if (ddx * ddx + ddz * ddz > 100) { // najpierw idzie na swoją działkę
@@ -94,7 +97,11 @@ final class BotBuilder {
 				case 0 -> housePlan(level, o, inv, wall, cob);
 				case 1 -> farmPlan(level, o, seeds);
 				case 2 -> towerPlan(level, o);
-				default -> pyramidPlan(level, o);
+				case 3 -> pyramidPlan(level, o);
+				case 4 -> yardPlan(level, o);
+				case 5 -> basePlan(level, o);
+				case 6 -> bigTowerPlan(level, o);
+				default -> lampPlan(level, o);
 			};
 			if (plan == null) { // teren na tej działce nie nadaje się: następna działka
 				BotManager.plotAdvance(nick);
@@ -213,23 +220,29 @@ final class BotBuilder {
 		return true;
 	}
 
-	/** Dom o losowych wymiarach (5/7/9 x 5/7, wysokość 3-4); materiał ścian: deski albo bruk, rogi z kłód. */
+	/** Dom o losowych wymiarach (5/7/9/11 x 5/7/9, wysokość 3-5); ściany z desek albo bruku, rogi z kłód. Gdy brak materiału, bot zmniejsza dom. */
 	private static List<P> housePlan(ServerLevel level, BlockPos o, SimpleContainer inv, int wall, int cob) {
-		int[] ws = {5, 7, 9}, ds = {5, 7};
-		int w = ws[RNG.nextInt(3)], d = ds[RNG.nextInt(2)], h = 3 + RNG.nextInt(2);
-		boolean cobWalls = cob >= 100 && RNG.nextBoolean();
-		for (int tries = 0; tries < 6; tries++) {
+		int[] ws = {5, 7, 9, 11}, ds = {5, 7, 9};
+		int w = ws[RNG.nextInt(4)], d = ds[RNG.nextInt(3)], h = 3 + RNG.nextInt(3);
+		boolean cobWalls = RNG.nextBoolean();
+		boolean ok = false;
+		for (int tries = 0; tries < 12 && !ok; tries++) {
 			int per = 2 * (w + d) - 4;
-			int cost = per * h - 3 + w * d;
-			if (cobWalls) cost = w * d; // ściany z bruku, dach z desek/kłód
-			if (wall >= cost) break;
-			w = Math.max(5, w - 2);
-			d = 5;
-			h = 3;
-			cobWalls = false;
+			int wallsCost = per * h - 3;
+			if (cobWalls) {
+				ok = cob >= wallsCost + w * d && wall >= w * d + 4 * h;
+				if (!ok) cobWalls = false;
+			} else {
+				ok = wall >= wallsCost + w * d;
+				if (!ok) {
+					w = Math.max(5, w - 2);
+					d = Math.max(5, d - 2);
+					h = Math.max(3, h - 1);
+				}
+			}
 		}
+		if (!ok) return null;
 		int per = 2 * (w + d) - 4;
-		if (wall < per * h - 3 + w * d && !(cobWalls)) return null;
 		if (!flat(level, o, Math.max(w, d), h + 2)) return null;
 		List<P> l = new ArrayList<>();
 		if (cob >= w * d + (cobWalls ? per * h : 0)) {
@@ -280,6 +293,71 @@ final class BotBuilder {
 			int size = 7 - 2 * y;
 			for (int x = 0; x < size; x++) for (int z = 0; z < size; z++) l.add(new P(o.offset(x + y, y, z + y), COBWALL));
 		}
+		return l;
+	}
+
+	/** Zagroda: ogrodzenie z bruku 9x9, wysokość 2, z bramą. */
+	private static List<P> yardPlan(ServerLevel level, BlockPos o) {
+		if (!flat(level, o, 9, 3)) return null;
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 2; y++) {
+			for (int x = 0; x < 9; x++) {
+				for (int z = 0; z < 9; z++) {
+					if (!(x == 0 || x == 8 || z == 0 || z == 8)) continue;
+					if (x == 4 && z == 0) continue; // brama
+					l.add(new P(o.offset(x, y, z), COBWALL));
+				}
+			}
+		}
+		l.add(new P(o.offset(3, 2, 0), TORCH));
+		l.add(new P(o.offset(5, 2, 0), TORCH));
+		return l;
+	}
+
+	/** Baza: mur 11x11 wysokości 3 z bramą, cztery narożne słupy do 6 bloków i pochodnie na szczytach. */
+	private static List<P> basePlan(ServerLevel level, BlockPos o) {
+		if (!flat(level, o, 11, 8)) return null;
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 6; y++) {
+			for (int x = 0; x < 11; x++) {
+				for (int z = 0; z < 11; z++) {
+					boolean edge = x == 0 || x == 10 || z == 0 || z == 10;
+					if (!edge) continue;
+					boolean corner = (x == 0 || x == 10) && (z == 0 || z == 10);
+					if (y >= 3 && !corner) continue;
+					if (x == 5 && z == 0 && y < 2) continue; // brama 1x2
+					l.add(new P(o.offset(x, y, z), COBWALL));
+				}
+			}
+		}
+		for (int x = 0; x <= 10; x += 10) for (int z = 0; z <= 10; z += 10) l.add(new P(o.offset(x, 6, z), TORCH));
+		return l;
+	}
+
+	/** Duża wieża strażnicza: 5x5, 8 bloków wysokości, z wejściem, platformą na szczycie i pochodniami. */
+	private static List<P> bigTowerPlan(ServerLevel level, BlockPos o) {
+		if (!flat(level, o, 5, 11)) return null;
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 8; y++) {
+			for (int x = 0; x < 5; x++) {
+				for (int z = 0; z < 5; z++) {
+					if (!(x == 0 || x == 4 || z == 0 || z == 4)) continue;
+					if (x == 2 && z == 0 && y < 2) continue;
+					l.add(new P(o.offset(x, y, z), COBWALL));
+				}
+			}
+		}
+		for (int x = 0; x < 5; x++) for (int z = 0; z < 5; z++) l.add(new P(o.offset(x, 8, z), COBWALL));
+		for (int x = 0; x <= 4; x += 4) for (int z = 0; z <= 4; z += 4) l.add(new P(o.offset(x, 9, z), TORCH));
+		return l;
+	}
+
+	/** Latarnia: słupek z bruku 4 bloki i pochodnia na górze. */
+	private static List<P> lampPlan(ServerLevel level, BlockPos o) {
+		if (!flat(level, o, 1, 6)) return null;
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 4; y++) l.add(new P(o.offset(0, y, 0), COBWALL));
+		l.add(new P(o.offset(0, 4, 0), TORCH));
 		return l;
 	}
 

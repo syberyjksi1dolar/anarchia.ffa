@@ -62,6 +62,8 @@ public final class BotManager {
 		boolean funded;
 		boolean kit;
 		boolean event;
+		boolean gear;
+		boolean mats;
 		String clan;
 		String role;
 		String buddy;
@@ -539,11 +541,6 @@ public final class BotManager {
 		eatIfHungry(r, m);
 		if (s.fleeT > 0) s.fleeT -= 10;
 		if (m.getHealth() < m.getMaxHealth() && level.getServer().getTickCount() % 100 == 0) m.heal(1f); // powolna regeneracja
-		if (s.rtpT <= 0 && s.awayUntil == 0 && s.foe == null && s.foeP == null && s.mine == null && !BotBuilder.busy(r.nick) && s.ritual <= 0
-				&& r.partner == null && !"G".equals(r.role) && !inSpawnArea(m.getX(), m.getZ()) && RNG.nextInt(1500) == 0) {
-			s.rtpT = 100;
-			BotChat.event(level.getServer(), "rtp", r.nick);
-		}
 		if (s.foe == null && s.foeP == null && s.mine == null && !BotBuilder.busy(r.nick) && s.rtpT <= 0) seekWood(level, r, s);
 		AABB near = m.getBoundingBox().inflate(1.5, 1.0, 1.5);
 		for (ItemEntity ie : level.getEntitiesOfClass(ItemEntity.class, near)) {
@@ -593,6 +590,24 @@ public final class BotManager {
 				giveKit(r);
 				ch = true;
 			}
+			if (!r.gear && r.kit) { // boty sprzed tej wersji: dostają miecz, kilof i zbroję
+				r.gear = true;
+				SimpleContainer gc = inv(r.nick);
+				gc.addItem(new ItemStack(swordFor(r.level)));
+				gc.addItem(new ItemStack(pickFor(r.level)));
+				for (Item a : armorFor(r.level)) gc.addItem(new ItemStack(a));
+				ch = true;
+			}
+			if (!r.mats && r.kit) { // boty sprzed tej wersji: dodatkowe materiały budowlane
+				r.mats = true;
+				SimpleContainer bc = inv(r.nick);
+				bc.addItem(new ItemStack(Items.COBBLESTONE, 160));
+				bc.addItem(new ItemStack(Items.OAK_PLANKS, 96));
+				bc.addItem(new ItemStack(Items.OAK_LOG, 48));
+				bc.addItem(new ItemStack(Items.TORCH, 24));
+				bc.addItem(new ItemStack(Items.WHEAT_SEEDS, 60));
+				ch = true;
+			}
 			if (!r.event) { // istniejące boty też dostają jedną eventówkę
 				r.event = true;
 				Item ev = Rynek.randomEventItem();
@@ -616,6 +631,8 @@ public final class BotManager {
 	private static void giveKit(Rec r) {
 		SimpleContainer c = inv(r.nick);
 		fillKit(c, r.level);
+		r.gear = true;
+		r.mats = true;
 		if (!r.event) { // pierwszy raz: jedna losowa eventówka
 			r.event = true;
 			Item ev = Rynek.randomEventItem();
@@ -627,14 +644,14 @@ public final class BotManager {
 	public static void fillKit(SimpleContainer c, int l) {
 		c.addItem(new ItemStack(Items.BREAD, 10 + l * 3));
 		c.addItem(new ItemStack(Items.COOKED_BEEF, 4 + l * 2));
-		c.addItem(new ItemStack(Items.COBBLESTONE, 32 + l * 8));
+		c.addItem(new ItemStack(Items.COBBLESTONE, 160 + l * 16));
 		c.addItem(new ItemStack(Items.COAL, 8 + l * 4));
-		c.addItem(new ItemStack(Items.OAK_LOG, l >= 3 ? 80 : 16 + l * 8));
-		c.addItem(new ItemStack(Items.OAK_PLANKS, 40 + l * 4));
+		c.addItem(new ItemStack(Items.OAK_LOG, 48 + l * 16));
+		c.addItem(new ItemStack(Items.OAK_PLANKS, 96 + l * 8));
 		c.addItem(new ItemStack(Items.APPLE, 3 + l));
-		c.addItem(new ItemStack(Items.TORCH, 16 + l * 2));
+		c.addItem(new ItemStack(Items.TORCH, 32 + l * 4));
 		c.addItem(new ItemStack(Items.STICK, 8));
-		c.addItem(new ItemStack(Items.WHEAT_SEEDS, 16 + l * 8));
+		c.addItem(new ItemStack(Items.WHEAT_SEEDS, 40 + l * 12));
 		c.addItem(new ItemStack(Items.WATER_BUCKET, 1));
 		c.addItem(new ItemStack(Items.BUCKET, 1));
 		if (l >= 2) {
@@ -685,8 +702,7 @@ public final class BotManager {
 		if (l >= 10) return new Item[] {Items.NETHERITE_HELMET, Items.NETHERITE_CHESTPLATE, Items.NETHERITE_LEGGINGS, Items.NETHERITE_BOOTS};
 		if (l >= 7) return new Item[] {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS};
 		if (l >= 4) return new Item[] {Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS};
-		if (l >= 2) return new Item[] {Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS};
-		return new Item[0];
+		return new Item[] {Items.LEATHER_HELMET, Items.LEATHER_CHESTPLATE, Items.LEATHER_LEGGINGS, Items.LEATHER_BOOTS};
 	}
 
 	private static final net.minecraft.world.entity.EquipmentSlot[] ARMOR_SLOTS = {net.minecraft.world.entity.EquipmentSlot.HEAD,
@@ -963,10 +979,10 @@ public final class BotManager {
 	public static double[] plotSlot(String nick) {
 		Rec r = recOf(nick);
 		if (r == null || !r.hasHome) return null;
-		for (int k = 0; k < 16; k++) {
-			int i = (r.slot + k) % 16;
-			double x = r.hx + (i % 4) * 13 - 20;
-			double z = r.hz + (i / 4) * 13 - 20;
+		for (int k = 0; k < 36; k++) {
+			int i = (r.slot + k) % 36;
+			double x = r.hx + (i % 6) * 13 - 32;
+			double z = r.hz + (i / 6) * 13 - 32;
 			if (Math.abs(x) < 40 && Math.abs(z) < 50) continue; // nie w okolicy spawnu, rynku i stawu
 			if (k > 0) r.slot = i;
 			return new double[] {x, z};
@@ -976,7 +992,7 @@ public final class BotManager {
 
 	public static void plotAdvance(String nick) {
 		Rec r = recOf(nick);
-		if (r != null) r.slot = (r.slot + 1) % 16;
+		if (r != null) r.slot = (r.slot + 1) % 36;
 	}
 
 	/** Ustawia cel marszu bota (np. na jego działkę). */
