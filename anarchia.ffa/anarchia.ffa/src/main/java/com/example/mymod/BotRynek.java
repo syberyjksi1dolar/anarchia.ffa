@@ -37,16 +37,15 @@ final class BotRynek {
 			if (!s.isEmpty() && s.getComponentsPatch().isEmpty() && Ceny.price(s) >= 0) ok.add(i);
 		}
 		if (ok.isEmpty()) return;
-		List<Integer> kit = new ArrayList<>();
-		for (int i : ok) {
-			if (BotManager.KIT_PATHS.contains(BuiltInRegistries.ITEM.getKey(inv.getItem(i).getItem()).getPath())) kit.add(i);
-		}
-		int slot = (!kit.isEmpty() && RNG.nextDouble() < 0.6) ? kit.get(RNG.nextInt(kit.size())) : ok.get(RNG.nextInt(ok.size()));
+		int slot = ok.get(RNG.nextInt(ok.size()));
+		// rzeczy z zestawu startowego wystawiają o 60% rzadziej
+		if (BotManager.KIT_PATHS.contains(BuiltInRegistries.ITEM.getKey(inv.getItem(slot).getItem()).getPath()) && RNG.nextDouble() < 0.6) return;
 		ItemStack st = inv.getItem(slot);
 		long ref = Ceny.price(st);
 		int cnt = 1 + RNG.nextInt(st.getCount());
-		long price = Math.max(1, Math.round(ref * cnt * (0.8 + RNG.nextDouble() * 0.7)));
 		String path = BuiltInRegistries.ITEM.getKey(st.getItem()).getPath();
+		double demand = Math.max(0.7, Math.min(1.5, Rynek.demandOf(path))); // wyższy popyt = wyższa cena
+		long price = Math.max(1, Math.round(ref * cnt * demand * (0.8 + RNG.nextDouble() * 0.7)));
 		st.shrink(cnt);
 		inv.setChanged();
 		if (!Rynek.botList(nick, path, cnt, price)) {

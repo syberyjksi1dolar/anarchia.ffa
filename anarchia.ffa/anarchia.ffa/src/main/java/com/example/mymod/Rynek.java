@@ -263,6 +263,11 @@ public final class Rynek {
 	}
 
 	/** Losowa eventówka (stała albo zużywalna); null, gdy żadna nie istnieje w grze. */
+	/** Aktualny popyt na przedmiot (1.0 = normalny); używają go boty do ustalania cen. */
+	static double demandOf(String item) {
+		return POPYT.getOrDefault(item, 1.0);
+	}
+
 	static Item randomEventItem() {
 		List<String> all = new ArrayList<>(EVENT_STALE);
 		all.addAll(EVENT_ZUZYWALNE);

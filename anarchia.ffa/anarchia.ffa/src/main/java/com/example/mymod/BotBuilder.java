@@ -71,11 +71,10 @@ final class BotBuilder {
 		SimpleContainer inv = BotManager.inv(nick);
 		int bx = (int) Math.floor(m.getX()), bz = (int) Math.floor(m.getZ());
 		if (j == null) {
-			if (Math.abs(bx) < 40 && Math.abs(bz) < 50) return false; // nie przy spawnie, rynku i stawie
 			if (BotManager.isGuard(nick)) return false; // strażnik nie buduje
-			if (RNG.nextInt(BotManager.isBuilder(nick) ? 2 : 4) != 0) return false;
-			int gy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
-			BlockPos o = new BlockPos(bx + 3, gy, bz + 3);
+			if (RNG.nextInt(BotManager.isBuilder(nick) ? 1 : 2) != 0) return false;
+			double[] slot = BotManager.plotSlot(nick); // działka bota (posesja wokół jego pierwszego spawnu)
+			if (slot == null) return false;
 			List<Integer> kinds = new ArrayList<>();
 			int wall = countWall(inv), cob = count(inv, Items.COBBLESTONE), seeds = count(inv, Items.WHEAT_SEEDS);
 			if (wall >= 71) kinds.add(0);
@@ -83,6 +82,13 @@ final class BotBuilder {
 			if (cob >= 80) kinds.add(2);
 			if (cob >= 84) kinds.add(3);
 			if (kinds.isEmpty()) return false;
+			double ddx = slot[0] - m.getX(), ddz = slot[1] - m.getZ();
+			if (ddx * ddx + ddz * ddz > 100) { // najpierw idzie na swoją działkę
+				BotManager.goTo(nick, slot[0], slot[1]);
+				return false;
+			}
+			int gy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) slot[0], (int) slot[1]);
+			BlockPos o = new BlockPos((int) slot[0], gy, (int) slot[1]);
 			int kind = kinds.get(RNG.nextInt(kinds.size()));
 			List<P> plan = switch (kind) {
 				case 0 -> housePlan(level, o, inv, wall, cob);
@@ -90,7 +96,10 @@ final class BotBuilder {
 				case 2 -> towerPlan(level, o);
 				default -> pyramidPlan(level, o);
 			};
-			if (plan == null) return false; // teren nie nadaje się, spróbuje gdzie indziej
+			if (plan == null) { // teren na tej działce nie nadaje się: następna działka
+				BotManager.plotAdvance(nick);
+				return false;
+			}
 			Job n = new Job();
 			n.plan = plan;
 			JOBS.put(nick, n);
@@ -98,6 +107,7 @@ final class BotBuilder {
 		}
 		if (j.idx >= j.plan.size()) {
 			JOBS.remove(nick);
+			BotManager.plotAdvance(nick); // następna budowla na kolejnej działce
 			return false;
 		}
 		// jak prawdziwy gracz: raz stawia kilka bloków pod rząd, raz rozgląda się i macha ręką
@@ -136,6 +146,7 @@ final class BotBuilder {
 			}
 			if (st == null) { // zabrakło materiału: kończy budowę
 				JOBS.remove(nick);
+				BotManager.plotAdvance(nick);
 				return false;
 			}
 			level.setBlock(p.pos(), st, 3);

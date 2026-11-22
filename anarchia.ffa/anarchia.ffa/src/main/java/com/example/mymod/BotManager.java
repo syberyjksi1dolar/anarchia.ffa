@@ -66,6 +66,7 @@ public final class BotManager {
 		String role;
 		String buddy;
 		boolean hasHome;
+		int slot;
 		double hx, hz;
 		String partner; // UUID gracza, z którym bot zawarł sojusz
 	}
@@ -89,7 +90,9 @@ public final class BotManager {
 		boolean first = true;
 		int act;
 		String foe;
-		int jump, sprintT, ritual;
+		int jump, sprintT, ritual, fleeT, rtpT;
+		boolean rtpBack;
+		long awayUntil;
 		String ritualWith;
 		boolean lead;
 		boolean retal;
@@ -502,6 +505,7 @@ public final class BotManager {
 	}
 
 	private static void dropAll(ServerLevel level, Rec r, State s) {
+		BotChat.event(level.getServer(), "death", r.nick);
 		Mannequin dead = s.entity;
 		if (dead != null) {
 			net.minecraft.world.entity.EquipmentSlot[] all = {net.minecraft.world.entity.EquipmentSlot.MAINHAND, net.minecraft.world.entity.EquipmentSlot.HEAD,
@@ -531,6 +535,15 @@ public final class BotManager {
 	/** Co 0,5 s: podnoszenie przedmiotów z ziemi i zbieranie drewna/rud z najbliższego otoczenia. */
 	private static void activity(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		eatIfHungry(r, m);
+		if (s.fleeT > 0) s.fleeT -= 10;
+		if (m.getHealth() < m.getMaxHealth() && level.getServer().getTickCount() % 100 == 0) m.heal(1f); // powolna regeneracja
+		if (s.rtpT <= 0 && s.awayUntil == 0 && s.foe == null && s.foeP == null && s.mine == null && !BotBuilder.busy(r.nick) && s.ritual <= 0
+				&& r.partner == null && !"G".equals(r.role) && !inSpawnArea(m.getX(), m.getZ()) && RNG.nextInt(1500) == 0) {
+			s.rtpT = 100;
+			BotChat.event(level.getServer(), "rtp", r.nick);
+		}
+		if (s.foe == null && s.foeP == null && s.mine == null && !BotBuilder.busy(r.nick) && s.rtpT <= 0) seekWood(level, r, s);
 		AABB near = m.getBoundingBox().inflate(1.5, 1.0, 1.5);
 		for (ItemEntity ie : level.getEntitiesOfClass(ItemEntity.class, near)) {
 			if (ie.isRemoved()) continue;
@@ -880,8 +893,8 @@ public final class BotManager {
 			int mine = 0;
 			String pid = p.getUUID().toString();
 			for (Rec r : ROSTER) if (pid.equals(r.partner)) mine++;
-			if (mine >= 3) {
-				p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Masz już 3 sojuszników-botów.").withStyle(net.minecraft.ChatFormatting.RED));
+			if (mine >= 5) {
+				p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Masz już 5 sojuszników-botów.").withStyle(net.minecraft.ChatFormatting.RED));
 				continue;
 			}
 			Rec r = recOf(best);
@@ -941,6 +954,36 @@ public final class BotManager {
 		}
 	}
 
+	/** Działka bota (posesja): siatka 4x4 pól co 13 bloków wokół jego pierwszego spawnu; null, gdy brak domu albo wszystkie pola w strefie spawnu. */
+	public static double[] plotSlot(String nick) {
+		Rec r = recOf(nick);
+		if (r == null || !r.hasHome) return null;
+		for (int k = 0; k < 16; k++) {
+			int i = (r.slot + k) % 16;
+			double x = r.hx + (i % 4) * 13 - 20;
+			double z = r.hz + (i / 4) * 13 - 20;
+			if (Math.abs(x) < 40 && Math.abs(z) < 50) continue; // nie w okolicy spawnu, rynku i stawu
+			if (k > 0) r.slot = i;
+			return new double[] {x, z};
+		}
+		return null;
+	}
+
+	public static void plotAdvance(String nick) {
+		Rec r = recOf(nick);
+		if (r != null) r.slot = (r.slot + 1) % 16;
+	}
+
+	/** Ustawia cel marszu bota (np. na jego działkę). */
+	public static void goTo(String nick, double x, double z) {
+		State s = STATES.get(nick);
+		if (s != null) {
+			s.tx = x;
+			s.tz = z;
+			s.wait = 0;
+		}
+	}
+
 	public static boolean isGuard(String nick) {
 		for (Rec r : ROSTER) if (r.nick.equals(nick)) return "G".equals(r.role) || r.partner != null;
 		return false;
@@ -988,7 +1031,7 @@ public final class BotManager {
 			Rec ro = recOf(e.getKey());
 			if (ro == null || (r.clan != null && ro.clan != null)) continue;
 			String c = r.clan != null ? r.clan : ro.clan;
-			if (c != null && clanSize(c) >= 6) continue;
+			if (c != null && clanSize(c) >= 5) continue;
 			s.ritual = 40;
 			os.ritual = 40;
 			s.ritualWith = e.getKey();
@@ -1054,9 +1097,91 @@ public final class BotManager {
 			}
 		}
 		save();
+		BotChat.event(SRV, "ally", a.nick);
 		if (SRV != null) {
 			SRV.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("[" + clan + "] " + a.nick + " i " + b.nick
 					+ " zawarli sojusz (klan " + clan + ").").withStyle(net.minecraft.ChatFormatting.AQUA), false);
+		}
+	}
+
+	/** Noc według czasu gry (przybliżenie: doba trwa 24000 tików, noc to 13000-23000). */
+	private static boolean isNightTime(ServerLevel level) {
+		long t = level.getGameTime() % 24000L;
+		return t >= 13000L && t < 23000L;
+	}
+
+	/** Wyprawa /rtp: odliczanie 5 s, potem teleport w losowe miejsce 1500x1500 (albo z powrotem do domu). */
+	private static void doRtp(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		if (s.rtpBack) {
+			s.rtpBack = false;
+			if (r.hasHome) {
+				level.getChunk((int) r.hx >> 4, (int) r.hz >> 4);
+				int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) r.hx, (int) r.hz);
+				m.setPos(r.hx, y, r.hz);
+				s.tx = r.hx;
+				s.tz = r.hz;
+			}
+			return;
+		}
+		for (int tries = 0; tries < 20; tries++) {
+			int x = RNG.nextInt(HALF * 2 + 1) - HALF, z = RNG.nextInt(HALF * 2 + 1) - HALF;
+			if (Math.abs(x) < 40 && Math.abs(z) < 50) continue;
+			level.getChunk(x >> 4, z >> 4);
+			if (isWaterAt(level, x + 0.5, z + 0.5)) continue;
+			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+			m.setPos(x + 0.5, y, z + 0.5);
+			s.tx = x + 0.5;
+			s.tz = z + 0.5;
+			s.awayUntil = level.getServer().getTickCount() + 3600 + RNG.nextInt(2400); // 3-5 minut zwiedzania
+			return;
+		}
+	}
+
+	private static void eatIfHungry(Rec r, Mannequin m) {
+		float miss = m.getMaxHealth() - m.getHealth();
+		if (miss < 6f) return;
+		SimpleContainer c = inv(r.nick);
+		Item[] food = {Items.GOLDEN_CARROT, Items.COOKED_BEEF, Items.BREAD, Items.APPLE};
+		float[] heal = {6f, 8f, 5f, 4f};
+		for (int i = 0; i < food.length; i++) {
+			if (!takeOne(c, food[i]).isEmpty()) {
+				m.heal(heal[i]);
+				m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+				return;
+			}
+		}
+	}
+
+	/** Gdy brakuje drewna, bot szuka najbliższego drzewa i idzie do niego. */
+	private static void seekWood(ServerLevel level, Rec r, State s) {
+		SimpleContainer c = inv(r.nick);
+		int logs = 0;
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack st = c.getItem(i);
+			if (st.getItem() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock().defaultBlockState().is(BlockTags.LOGS)) logs += st.getCount();
+		}
+		if (logs >= 60 || RNG.nextInt(25) != 0) return;
+		Mannequin m = s.entity;
+		int bx = (int) Math.floor(m.getX()), bz = (int) Math.floor(m.getZ());
+		int by = (int) Math.floor(m.getY());
+		double best = 1e9;
+		BlockPos bp = null;
+		for (int dx = -14; dx <= 14; dx += 2) {
+			for (int dz = -14; dz <= 14; dz += 2) {
+				for (int dy = -2; dy <= 10; dy++) {
+					BlockPos p = new BlockPos(bx + dx, by + dy, bz + dz);
+					if (level.getBlockState(p).is(BlockTags.LOGS)) {
+						double d = dx * dx + dz * dz;
+						if (d < best) { best = d; bp = p; }
+					}
+				}
+			}
+		}
+		if (bp != null) {
+			s.tx = bp.getX() + 0.5;
+			s.tz = bp.getZ() + 0.5;
+			s.wait = 0;
 		}
 	}
 
@@ -1070,6 +1195,15 @@ public final class BotManager {
 		if (s.foeP != null && r.partner != null && s.foeP.toString().equals(r.partner)) { // sojusznika gracza nie bijemy
 			s.foeP = null;
 			s.retal = false;
+			return false;
+		}
+		eatIfHungry(r, m);
+		if (m.getHealth() < 6f) { // mało życia: ucieka do domu
+			s.foe = null;
+			s.foeP = null;
+			s.retal = false;
+			s.fleeT = 300;
+			if (r.hasHome) { s.tx = r.hx; s.tz = r.hz; s.wait = 0; }
 			return false;
 		}
 		net.minecraft.world.entity.LivingEntity f;
@@ -1136,6 +1270,7 @@ public final class BotManager {
 	/** Czasem bot zaczepia najbliższego bota w pobliżu (poza spawnem i stawem) i zaczyna się bójka. */
 	private static void maybeStartFight(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		if (s.fleeT > 0 || s.rtpT > 0) return;
 		if (s.foeP == null && !inSpawnArea(m.getX(), m.getZ()) && !inPond(m.getX(), m.getZ())) {
 			ServerPlayer near = null;
 			double nd = 14 * 14;
@@ -1176,6 +1311,24 @@ public final class BotManager {
 
 	private static void moveBot(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		if (s.rtpT > 0) { // odliczanie przed teleportacją (jak /rtp u gracza)
+			if (--s.rtpT == 0) doRtp(level, r, s);
+			return;
+		}
+		if (s.awayUntil > 0 && level.getServer().getTickCount() >= s.awayUntil && s.foe == null && s.foeP == null) {
+			s.awayUntil = 0;
+			s.rtpBack = true; // wyprawa skończona: wraca na swoją posesję
+			s.rtpT = 100;
+			return;
+		}
+		if (isNightTime(level) && r.hasHome && r.partner == null && !"G".equals(r.role) && s.foe == null && s.foeP == null && s.mine == null
+				&& !BotBuilder.busy(r.nick) && s.ritual <= 0) { // w nocy wracają do domu i tam stoją
+			double hx = r.hx - m.getX(), hz = r.hz - m.getZ();
+			if (hx * hx + hz * hz < 16) return;
+			s.tx = r.hx;
+			s.tz = r.hz;
+			s.wait = 0;
+		}
 		if (s.ritual > 0 && ritualStep(level, r, s)) return;
 		if ((s.foe != null || s.foeP != null) && fightStep(level, r, s)) return;
 		if (s.mine != null) { mineStep(level, r, s); return; }

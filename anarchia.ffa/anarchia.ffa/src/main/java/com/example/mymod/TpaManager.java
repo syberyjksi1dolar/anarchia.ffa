@@ -29,28 +29,33 @@ public final class TpaManager {
 	private static final Map<UUID, Integer> WAIT = new HashMap<>();
 
 	public static void initialize() {
-		CommandRegistrationCallback.EVENT.register((d, reg, env) -> d.register(Commands.literal("tpa").executes(ctx -> {
-			ServerPlayer p = ctx.getSource().getPlayer();
-			if (p == null) {
-				ctx.getSource().sendFailure(Component.literal("Tej komendy może użyć tylko gracz."));
-				return 0;
+		CommandRegistrationCallback.EVENT.register((d, reg, env) -> {
+			for (String lit : new String[] {"tpa", "rtp"}) {
+				d.register(Commands.literal(lit).executes(ctx -> {
+				ServerPlayer p = ctx.getSource().getPlayer();
+				if (p == null) {
+					ctx.getSource().sendFailure(Component.literal("Tej komendy może użyć tylko gracz."));
+					return 0;
+				}
+				MinecraftServer server = ctx.getSource().getServer();
+				if (p.level() != server.overworld()) {
+					ctx.getSource().sendFailure(Component.literal("/tpa działa tylko w głównym świecie."));
+					return 0;
+				}
+				if (Antylogout.inCombat(p, server)) {
+					ctx.getSource().sendFailure(Component.literal("Nie możesz użyć /tpa podczas walki (antylogout)."));
+					return 0;
+				}
+				if (WAIT.containsKey(p.getUUID())) {
+					ctx.getSource().sendFailure(Component.literal("Teleportacja już trwa."));
+					return 0;
+				}
+				WAIT.put(p.getUUID(), COUNTDOWN_TICKS);
+				return 1;
+	
+			}));
 			}
-			MinecraftServer server = ctx.getSource().getServer();
-			if (p.level() != server.overworld()) {
-				ctx.getSource().sendFailure(Component.literal("/tpa działa tylko w głównym świecie."));
-				return 0;
-			}
-			if (Antylogout.inCombat(p, server)) {
-				ctx.getSource().sendFailure(Component.literal("Nie możesz użyć /tpa podczas walki (antylogout)."));
-				return 0;
-			}
-			if (WAIT.containsKey(p.getUUID())) {
-				ctx.getSource().sendFailure(Component.literal("Teleportacja już trwa."));
-				return 0;
-			}
-			WAIT.put(p.getUUID(), COUNTDOWN_TICKS);
-			return 1;
-		})));
+		});
 		ServerPlayConnectionEvents.DISCONNECT.register((h, s) -> WAIT.remove(h.getPlayer().getUUID()));
 		ServerTickEvents.END_SERVER_TICK.register(TpaManager::tick);
 	}
