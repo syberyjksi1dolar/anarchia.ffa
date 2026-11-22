@@ -518,6 +518,12 @@ public final class Rynek {
 	private static final java.util.Set<String> PRZYDATNE = java.util.Set.of("zmianki", "sakiewka", "shulek_boxek",
 			"totem_ulaskawienia", "dynamit");
 
+	/** Czy to eventówka (stała albo zużywalna); boty gubią je po śmierci. */
+	static boolean isEventItem(Item it) {
+		net.minecraft.resources.Identifier id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(it);
+		return "mymod".equals(id.getNamespace()) && (EVENT_STALE.contains(id.getPath()) || EVENT_ZUZYWALNE.contains(id.getPath()));
+	}
+
 	private static boolean specjalne(String path, int f) {
 		return switch (f) {
 			case 1 -> path.equals("serce_zycia");
