@@ -48,7 +48,7 @@ public final class BotManager {
 	private BotManager() {}
 
 	public static final String TAG = "anarchia_bot";
-	public static final int COUNT = 168;
+	public static final int COUNT = 300;
 	public static final int HALF = 750;               // obszar 1500 x 1500 wokół 0,0
 	public static final double SPAWN_X = 0.5, SPAWN_Y = 100, SPAWN_Z = 0.5;
 	private static final String[] SKINS = {"steve", "alex", "ari", "efe", "kai", "makena", "noor", "sunny", "zuri"};
@@ -66,6 +66,10 @@ public final class BotManager {
 		boolean mats, mats2;
 		boolean wallDone;
 		int wallP, wallH, wallY;
+		boolean cwDone; // mur sojuszu (zapisany u właściciela bazy klanu)
+		int cwP, cwH, cwY;
+		boolean hasWs; // warsztat: piec w (wsx, wsy, wsz), stół obok
+		int wsx, wsy, wsz;
 		int kills, deaths;
 		String clan;
 		String role;
@@ -101,6 +105,9 @@ public final class BotManager {
 		int stunT;
 		java.util.UUID proposeTo;
 		int propT, propToggles, propTick;
+		double[] tourPts; // oprowadzanie nowego członka sojuszu: punkty x,z
+		int tourIdx, tourDwell, tourT;
+		String escort; // sojusznik, który oprowadza nowego członka
 		long awayUntil;
 		String ritualWith;
 		boolean lead;
@@ -601,10 +608,9 @@ public final class BotManager {
 	/** Co 0,5 s: podnoszenie przedmiotów z ziemi i zbieranie drewna/rud z najbliższego otoczenia. */
 	private static void activity(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
-		eatIfHungry(r, m);
 		BotEvents.tick(level, r.nick, m, foeOf(level, s));
+		if (s.foe == null && s.foeP == null && s.mine == null && s.tourPts == null && !BotBuilder.busy(r.nick)) BotCraft.tick(level, r.nick, m); // piec, crafting, rozwój sprzętu
 		if (s.fleeT > 0) s.fleeT -= 10;
-		if (m.getHealth() < m.getMaxHealth() && level.getServer().getTickCount() % 270 == 0) m.heal(1f); // regeneracja 70% wolniejsza niż u gracza (gracz: 1 HP co ok. 4 s, bot: co 13,5 s)
 		if (s.foe == null && s.foeP == null && s.mine == null && !BotBuilder.busy(r.nick) && s.rtpT <= 0) seekWood(level, r, s);
 		AABB near = m.getBoundingBox().inflate(1.5, 1.0, 1.5);
 		for (ItemEntity ie : level.getEntitiesOfClass(ItemEntity.class, near)) {
@@ -621,10 +627,10 @@ public final class BotManager {
 			}
 		}
 		if (BotBuilder.busy(r.nick)) {
-			if (s.act++ % 4 == 0) BotBuilder.step(level, r.nick, m);
+			if (s.act++ % 2 == 0) BotBuilder.step(level, r.nick, m); // w trakcie budowy co 1 s
 			return;
 		}
-		if (++s.act % 4 != 0) return;
+		if (++s.act % 2 != 0) return;
 		if (BotBuilder.step(level, r.nick, m)) return;
 		int bx = (int) Math.floor(m.getX()), bz = (int) Math.floor(m.getZ());
 		if (Math.abs(bx) < 30 && Math.abs(bz) < 40) return; // okolice spawnu, rynku i stawu zostają nietknięte
@@ -716,8 +722,8 @@ public final class BotManager {
 		c.addItem(new ItemStack(Items.COOKED_BEEF, 4 + l * 2));
 		c.addItem(new ItemStack(Items.COBBLESTONE, 480 + l * 16));
 		c.addItem(new ItemStack(Items.COAL, 8 + l * 4));
-		c.addItem(new ItemStack(Items.OAK_LOG, 32 + l * 8));
-		c.addItem(new ItemStack(Items.OAK_PLANKS, 96 + l * 8));
+		c.addItem(new ItemStack(Items.OAK_LOG, 64 + l * 8));
+		c.addItem(new ItemStack(Items.OAK_PLANKS, 160 + l * 8));
 		c.addItem(new ItemStack(Items.APPLE, 3 + l));
 		c.addItem(new ItemStack(Items.TORCH, 32 + l * 4));
 		c.addItem(new ItemStack(Items.STICK, 8));
@@ -1056,6 +1062,62 @@ public final class BotManager {
 	}
 
 	/** Działka bota (posesja): siatka 4x4 pól co 13 bloków wokół jego pierwszego spawnu; null, gdy brak domu albo wszystkie pola w strefie spawnu. */
+	/** Baza sojuszu: bot z klanu (bez sojuszu z graczem), który zaczął mur sojuszu albo ma gotowy własny mur; z wyłączeniem exclude. */
+	private static Rec clanBaseRec(String clan, Rec exclude) {
+		if (clan == null) return null;
+		Rec walled = null, first = null;
+		for (Rec x : ROSTER) {
+			if (x == exclude || !clan.equals(x.clan) || x.partner != null || !x.hasHome) continue;
+			if (x.cwP > 0) return x;
+			if (walled == null && x.wallDone) walled = x;
+			if (first == null) first = x;
+		}
+		return walled != null ? walled : first;
+	}
+
+	/** Środek bazy sojuszu bota albo null, gdy bot nie ma sojuszu z botami. */
+	public static double[] clanBaseHome(String nick) {
+		Rec r = recOf(nick);
+		if (r == null || r.clan == null || r.partner != null) return null;
+		Rec b = clanBaseRec(r.clan, null);
+		return b == null ? null : new double[] {b.hx, b.hz};
+	}
+
+	/** {rozmiar muru sojuszu, wysokość, 1 gdy gotowy, poziom gruntu, rozmiar własnego muru właściciela bazy, 1 gdy jego własny mur gotowy, jego poziom gruntu}. */
+	public static int[] clanWallInfo(String nick) {
+		Rec r = recOf(nick);
+		Rec b = r == null || r.clan == null ? null : clanBaseRec(r.clan, null);
+		if (b == null) return null;
+		return new int[] {b.cwP, b.cwH, b.cwDone ? 1 : 0, b.cwY, b.wallP, b.wallDone ? 1 : 0, b.wallY};
+	}
+
+	public static void setClanWall(String nick, int size, int h, int y, boolean done) {
+		Rec r = recOf(nick);
+		Rec b = r == null || r.clan == null ? null : clanBaseRec(r.clan, null);
+		if (b == null) return;
+		b.cwP = size;
+		b.cwH = h;
+		b.cwY = y;
+		b.cwDone = done;
+		save();
+	}
+
+	/** {x, y, z pieca, 1 gdy bot ma warsztat}. */
+	public static int[] workshop(String nick) {
+		Rec r = recOf(nick);
+		return r == null ? new int[] {0, 0, 0, 0} : new int[] {r.wsx, r.wsy, r.wsz, r.hasWs ? 1 : 0};
+	}
+
+	public static void setWorkshop(String nick, int x, int y, int z, boolean has) {
+		Rec r = recOf(nick);
+		if (r == null) return;
+		r.wsx = x;
+		r.wsy = y;
+		r.wsz = z;
+		r.hasWs = has;
+		save();
+	}
+
 	/** Dom bota (środek jego działki) albo null, gdy jeszcze się nie pojawił. */
 	public static double[] home(String nick) {
 		Rec r = recOf(nick);
@@ -1189,6 +1251,119 @@ public final class BotManager {
 		return true;
 	}
 
+	/** Nowy członek sojuszu: sojusznik prowadzi go dookoła muru i bazy, a potem pod bramę. */
+	private static void startTour(Rec joiner, String clan) {
+		Rec base = clanBaseRec(clan, joiner);
+		State js = STATES.get(joiner.nick);
+		if (base == null || js == null || js.entity == null || js.entity.isRemoved()) return;
+		String escort = null;
+		for (Rec x : ROSTER) {
+			if (x == joiner || !clan.equals(x.clan)) continue;
+			State xs = STATES.get(x.nick);
+			if (xs != null && xs.entity != null && !xs.entity.isRemoved() && xs.entity.isAlive()) {
+				escort = x.nick;
+				break;
+			}
+		}
+		int half = (base.cwP > 0 ? base.cwP : base.wallP > 0 ? base.wallP : 15) / 2 + 3;
+		double cx = base.hx, cz = base.hz;
+		js.tourPts = new double[] {cx, cz - half - 1, cx + half, cz - half, cx + half, cz + half, cx - half, cz + half, cx - half, cz - half, cx, cz - half - 1};
+		js.tourIdx = 0;
+		js.tourDwell = 0;
+		js.tourT = 2400;
+		js.foe = null;
+		js.foeP = null;
+		if (escort != null) {
+			State es = STATES.get(escort);
+			es.escort = joiner.nick;
+			es.tourT = 2400;
+			if (SRV != null) BotChat.say(SRV, escort, "Witaj w sojuszu, " + joiner.nick + "! Chodź, pokażę ci nasz mur i bazę.");
+		}
+	}
+
+	/** Jeden krok w stronę punktu (z omijaniem przeszkód); true, gdy bot jest już na miejscu. */
+	private static boolean stepToward(ServerLevel level, Mannequin m, double tx, double tz, double speed) {
+		double dx = tx - m.getX(), dz = tz - m.getZ();
+		double d = Math.sqrt(dx * dx + dz * dz);
+		if (d < 0.8) return true;
+		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+		m.setYRot(yaw);
+		m.setYHeadRot(yaw);
+		m.setYBodyRot(yaw);
+		double step = Math.min(speed, d);
+		double nx = m.getX() + dx / d * step, nz = m.getZ() + dz / d * step;
+		if (!level.hasChunkAt(new BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz))) || isWaterAt(level, nx, nz)) return false;
+		double wy = walkY(level, m.getY(), (int) Math.floor(nx), (int) Math.floor(nz));
+		if (Double.isNaN(wy) || !free(level, m, nx, wy, nz)) {
+			if (!clearObstacle(level, m, nx, nz)) { // nie do wycięcia: przesuwa się bokiem
+				double sx = m.getX() - dz / d * 0.1, sz = m.getZ() + dx / d * 0.1;
+				double sy = walkY(level, m.getY(), (int) Math.floor(sx), (int) Math.floor(sz));
+				if (!Double.isNaN(sy) && free(level, m, sx, sy, sz)) m.setPos(sx, sy, sz);
+			}
+			return false;
+		}
+		m.setPos(nx, wy, nz);
+		return false;
+	}
+
+	/** Nowy członek sojuszu obchodzi mur i bazę, w każdym rogu chwilę stoi i się rozgląda. */
+	private static boolean tourStep(ServerLevel level, Rec r, State s) {
+		Mannequin m = s.entity;
+		int n = s.tourPts.length / 2;
+		if (--s.tourT <= 0 || s.tourIdx >= n) {
+			boolean finished = s.tourIdx >= n;
+			s.tourPts = null;
+			if (finished && SRV != null) BotChat.say(SRV, r.nick, "Fajna baza, dzięki za oprowadzenie!");
+			return false;
+		}
+		double tx = s.tourPts[2 * s.tourIdx], tz = s.tourPts[2 * s.tourIdx + 1];
+		if (s.tourIdx == 0 && s.tourDwell == 0 && (tx - m.getX()) * (tx - m.getX()) + (tz - m.getZ()) * (tz - m.getZ()) > 80 * 80) {
+			int gy = BotBuilder.ground(level, (int) Math.floor(tx), (int) Math.floor(tz)); // za daleko: pojawia się pod bramą
+			level.getChunk((int) Math.floor(tx) >> 4, (int) Math.floor(tz) >> 4);
+			m.setPos(tx, gy, tz);
+			s.tx = tx;
+			s.tz = tz;
+		}
+		if (s.tourDwell > 0) {
+			s.tourDwell--;
+			if (s.tourDwell % 10 == 0) {
+				float yaw = (float) (RNG.nextDouble() * 360 - 180);
+				m.setYRot(yaw);
+				m.setYHeadRot(yaw);
+				m.setYBodyRot(yaw);
+			}
+			return true;
+		}
+		if (stepToward(level, m, tx, tz, 0.13)) {
+			s.tourDwell = 40;
+			s.tourIdx++;
+		}
+		return true;
+	}
+
+	/** Sojusznik idzie obok nowego członka podczas oprowadzania. */
+	private static boolean escortStep(ServerLevel level, Rec r, State s) {
+		State ns = STATES.get(s.escort);
+		Mannequin m = s.entity;
+		if (ns == null || ns.tourPts == null || ns.entity == null || ns.entity.isRemoved() || --s.tourT <= 0) {
+			s.escort = null;
+			return false;
+		}
+		Mannequin nm = ns.entity;
+		double dx = nm.getX() - m.getX(), dz = nm.getZ() - m.getZ();
+		double d = Math.sqrt(dx * dx + dz * dz);
+		if (d > 40) {
+			m.setPos(nm.getX() + 2, nm.getY(), nm.getZ() + 2);
+		} else if (d > 3.5) {
+			stepToward(level, m, nm.getX(), nm.getZ(), 0.14);
+		} else {
+			float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+			m.setYRot(yaw);
+			m.setYHeadRot(yaw);
+		}
+		return true;
+	}
+
 	private static void formAlliance(Rec a, Rec b) {
 		if (b == null || (a.clan != null && b.clan != null)) return;
 		boolean aHad = a.clan != null, bHad = b.clan != null;
@@ -1218,6 +1393,7 @@ public final class BotManager {
 				joiner.role = "B";
 				joiner.buddy = null;
 			}
+			startTour(joiner, clan);
 		}
 		save();
 		BotChat.event(SRV, "ally", a.nick);
@@ -1284,7 +1460,7 @@ public final class BotManager {
 			ItemStack st = c.getItem(i);
 			if (st.getItem() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock().defaultBlockState().is(BlockTags.LOGS)) logs += st.getCount();
 		}
-		if (logs >= 60 || RNG.nextInt(25) != 0) return;
+		if (logs >= 120 || RNG.nextInt(25) != 0) return;
 		Mannequin m = s.entity;
 		int bx = (int) Math.floor(m.getX()), bz = (int) Math.floor(m.getZ());
 		int by = (int) Math.floor(m.getY());
@@ -1320,7 +1496,6 @@ public final class BotManager {
 			s.retal = false;
 			return false;
 		}
-		eatIfHungry(r, m);
 		if (m.getHealth() < 6f) { // mało życia: ucieka do domu
 			s.foe = null;
 			s.foeP = null;
@@ -1644,7 +1819,7 @@ public final class BotManager {
 			return;
 		}
 		if (isNightTime(level) && r.hasHome && r.partner == null && !"G".equals(r.role) && s.foe == null && s.foeP == null && s.mine == null
-				&& !BotBuilder.busy(r.nick) && s.ritual <= 0) { // w nocy wracają do domu i tam stoją
+				&& !BotBuilder.busy(r.nick) && s.ritual <= 0 && s.tourPts == null && s.escort == null) { // w nocy wracają do domu i tam stoją
 			double hx = r.hx - m.getX(), hz = r.hz - m.getZ();
 			if (hx * hx + hz * hz < 16) { // przy domu się kręci, nie stoi
 				pace(level, m, s, r.hx, r.hz, 6);
@@ -1657,6 +1832,8 @@ public final class BotManager {
 		if (s.ritual > 0 && ritualStep(level, r, s)) return;
 		if ((s.foe != null || s.foeP != null) && fightStep(level, r, s)) return;
 		if (s.proposeTo != null && proposeStep(level, r, s)) return;
+		if (s.tourPts != null && tourStep(level, r, s)) return;
+		if (s.escort != null && escortStep(level, r, s)) return;
 		if (s.mine != null) { mineStep(level, r, s); return; }
 		if (BotBuilder.busy(r.nick)) { // buduje, ale się kręci przy budowie
 			double[] sl = BotBuilder.focus(r.nick);

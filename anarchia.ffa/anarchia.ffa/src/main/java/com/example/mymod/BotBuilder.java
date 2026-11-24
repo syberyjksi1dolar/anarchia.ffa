@@ -30,15 +30,16 @@ final class BotBuilder {
 	private BotBuilder() {}
 
 	private static final Random RNG = new Random();
-	private static final int WALL = 0, COBBLE = 1, TORCH = 2, WATER = 3, CROP = 4, CORNER = 5, COBWALL = 6, BLK = 7;
+	private static final int WALL = 0, COBBLE = 1, TORCH = 2, WATER = 3, CROP = 4, CORNER = 5, COBWALL = 6, BLK = 7, TABLE = 8, FURNACE = 9;
 
 	private record P(BlockPos pos, int type) {}
 
 	private static final class Job {
 		List<P> plan;
 		int idx;
-		boolean wall;
+		int kind; // 0 zwykła budowla, 1 mur własnej działki, 2 mur sojuszu
 		int wp, wh, wy;
+		BlockPos ws; // gdy to warsztat: jego pozycja
 	}
 
 	private static final Map<String, Job> JOBS = new HashMap<>();
@@ -101,7 +102,7 @@ final class BotBuilder {
 	}
 
 	/** Wysokość (poziom stóp) nad gruntem w kolumnie, z pominięciem drzew i roślin. */
-	private static int ground(ServerLevel level, int x, int z) {
+	static int ground(ServerLevel level, int x, int z) {
 		int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
 		while (y > 5) {
 			BlockState st = level.getBlockState(new BlockPos(x, y - 1, z));
@@ -128,7 +129,7 @@ final class BotBuilder {
 	}
 
 	/** Szuka wolnego miejsca na budowlę size x size: najpierw w środku działki z murem, potem tuż za nią. */
-	private static BlockPos findSpot(ServerLevel level, String nick, int size, int clear, double[] home, int[] wi) {
+	private static BlockPos findSpot(ServerLevel level, String nick, int size, int clear, double[] home, int[] wi, boolean outside) {
 		int cx = (int) Math.floor(home[0]), cz = (int) Math.floor(home[1]);
 		int half = wi[0] / 2, baseY = wi[3];
 		int lo = -half + 2, hi = half - 2 - size + 1;
@@ -138,6 +139,7 @@ final class BotBuilder {
 				if (spotOk(level, x0, z0, size, baseY, clear)) return new BlockPos(x0, baseY, z0);
 			}
 		}
+		if (!outside) return null;
 		for (int t = 0; t < 30; t++) { // za murem
 			int dx = RNG.nextInt(91) - 45, dz = RNG.nextInt(91) - 45;
 			if (Math.abs(dx) <= half + 2 && Math.abs(dz) <= half + 2) continue;
@@ -174,23 +176,63 @@ final class BotBuilder {
 		Job j = JOBS.get(nick);
 		SimpleContainer inv = BotManager.inv(nick);
 		if (j == null) {
-			if (BotManager.isGuard(nick)) return false; // strażnik nie buduje
+			boolean guard = BotManager.isGuard(nick); // strażnik pomaga tylko przy murze sojuszu
 			double[] home = BotManager.home(nick);
 			if (home == null) return false;
-			double ddx = home[0] - m.getX(), ddz = home[1] - m.getZ();
-			if (ddx * ddx + ddz * ddz > 144) { // najpierw wraca na swoją działkę
-				BotManager.goTo(nick, home[0], home[1]);
-				return false;
-			}
 			int[] wi = BotManager.wallInfo(nick); // {rozmiar, wysokość, gotowy, poziom gruntu}
+			int[] cw = BotManager.clanWallInfo(nick); // mur sojuszu albo null
+			double[] cb = BotManager.clanBaseHome(nick);
 			Job n = new Job();
-			if (wi[2] == 0) { // najpierw mur dookoła działki
+			if (!guard && wi[2] == 0) { // najpierw mur dookoła własnej działki
+				double ddx = home[0] - m.getX(), ddz = home[1] - m.getZ();
+				if (ddx * ddx + ddz * ddz > 144) { // najpierw wraca na swoją działkę
+					BotManager.goTo(nick, home[0], home[1]);
+					return false;
+				}
 				List<P> plan = wallPlan(level, nick, inv, home, wi, n);
 				if (plan == null) return false; // brak materiału na mur: bot najpierw zdobywa bloki
 				n.plan = plan;
-				n.wall = true;
+				n.kind = 1;
 				JOBS.put(nick, n);
 				return true;
+			}
+			if (cw != null && cb != null && cw[2] == 0) { // wszyscy z sojuszu budują wspólny mur wokół bazy (min. 15x15x5)
+				double ddx = cb[0] - m.getX(), ddz = cb[1] - m.getZ();
+				if (ddx * ddx + ddz * ddz > 30 * 30) { // idzie do bazy sojuszu
+					BotManager.goTo(nick, cb[0], cb[1]);
+					return false;
+				}
+				List<P> plan = clanWallPlan(level, nick, inv, cb, cw, n);
+				if (plan != null) {
+					n.plan = plan;
+					n.kind = 2;
+					JOBS.put(nick, n);
+					return true;
+				}
+			}
+			if (guard) return false;
+			boolean inClan = cw != null && cb != null && cw[2] == 1 && RNG.nextInt(100) < 50; // połowa budowli powstaje w bazie sojuszu
+			double[] site = home;
+			int[] swi = wi;
+			if (inClan) {
+				site = cb;
+				swi = new int[] {cw[0], cw[1], cw[2], cw[3]};
+			}
+			double sdx = site[0] - m.getX(), sdz = site[1] - m.getZ();
+			if (sdx * sdx + sdz * sdz > (inClan ? 30 * 30 : 144)) { // najpierw wraca na swoją działkę (albo do bazy sojuszu)
+				BotManager.goTo(nick, site[0], site[1]);
+				return false;
+			}
+			int[] wsi = BotManager.workshop(nick);
+			if (wsi[3] == 0 && countWall(inv) >= 4 && count(inv, Items.COBBLESTONE) >= 10) { // warsztat: piec i stół do craftingu
+				BlockPos wo = findSpot(level, nick, 3, 3, home, wi, true);
+				if (wo != null) {
+					prepare(level, wo, 3, 3);
+					n.plan = workshopPlan(wo);
+					n.ws = wo;
+					JOBS.put(nick, n);
+					return true;
+				}
 			}
 			List<Integer> kinds = new ArrayList<>();
 			int wall = countWall(inv), cob = count(inv, Items.COBBLESTONE), seeds = count(inv, Items.WHEAT_SEEDS);
@@ -204,6 +246,9 @@ final class BotBuilder {
 			if (cob >= 10) { kinds.add(7); kinds.add(7); kinds.add(7); }
 			if (cob >= 70) kinds.add(8);
 			if (cob >= 100) kinds.add(9);
+			if (cob >= 200 && wall >= 100) { kinds.add(10); kinds.add(10); }
+			if (cob >= 25) { kinds.add(11); kinds.add(11); }
+			if (wall >= 45) { kinds.add(12); kinds.add(12); }
 			if (kinds.isEmpty()) return false;
 			int kind = kinds.get(RNG.nextInt(kinds.size()));
 			int farmN = seeds >= 80 ? 9 : seeds >= 24 ? 5 : 3;
@@ -217,6 +262,9 @@ final class BotBuilder {
 				case 6 -> 5;
 				case 7 -> 1;
 				case 8 -> 5;
+				case 10 -> 9;
+				case 11 -> 3;
+				case 12 -> 5;
 				default -> 9;
 			};
 			int clear = switch (kind) {
@@ -224,16 +272,18 @@ final class BotBuilder {
 				case 1 -> 3;
 				case 2, 6 -> 11;
 				case 3, 8 -> 5;
-				case 7 -> 6;
+				case 7, 12 -> 6;
+				case 10 -> 10;
+				case 11 -> 12;
 				default -> 3;
 			};
-			BlockPos o = findSpot(level, nick, size, clear, home, wi);
+			BlockPos o = findSpot(level, nick, size, clear, site, swi, !inClan);
 			if (o == null && kind == 0) { // dom: próbuje mniejszy
 				size = 9;
-				o = findSpot(level, nick, size, clear, home, wi);
+				o = findSpot(level, nick, size, clear, site, swi, !inClan);
 				if (o == null) {
 					size = 7;
-					o = findSpot(level, nick, size, clear, home, wi);
+					o = findSpot(level, nick, size, clear, site, swi, !inClan);
 				}
 			}
 			if (o == null) return false;
@@ -248,6 +298,9 @@ final class BotBuilder {
 				case 6 -> bigTowerPlan(o);
 				case 7 -> lampPlan(o);
 				case 8 -> bunkerPlan(o);
+				case 10 -> twoStoryPlan(o);
+				case 11 -> obeliskPlan(o);
+				case 12 -> pavilionPlan(o);
 				default -> plazaPlan(o);
 			};
 			if (plan == null || plan.isEmpty()) return false;
@@ -257,7 +310,9 @@ final class BotBuilder {
 		}
 		if (j.idx >= j.plan.size()) {
 			JOBS.remove(nick);
-			if (j.wall) BotManager.setWall(nick, j.wp, j.wh, j.wy, true); // mur gotowy
+			if (j.kind == 1) BotManager.setWall(nick, j.wp, j.wh, j.wy, true); // mur gotowy
+			if (j.kind == 2) BotManager.setClanWall(nick, j.wp, j.wh, j.wy, true); // mur sojuszu gotowy
+			if (j.ws != null) BotManager.setWorkshop(nick, j.ws.getX(), j.ws.getY(), j.ws.getZ(), true);
 			return false;
 		}
 		// jak prawdziwy gracz: raz stawia kilka bloków pod rząd, raz rozgląda się i macha ręką
@@ -270,13 +325,14 @@ final class BotBuilder {
 			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
 			return true;
 		}
-		int burst = 1 + RNG.nextInt(3);
+		int burst = j.kind != 0 ? 3 + RNG.nextInt(2) : 1 + RNG.nextInt(3); // mury powstają o ok. 80% szybciej
 		P last = null;
-		for (int b = 0; b < burst && j.idx < j.plan.size(); b++) {
+		int placed = 0, scanned = 0;
+		while (placed < burst && j.idx < j.plan.size() && scanned++ < 600) {
 			P p = j.plan.get(j.idx++);
 			BlockState cur = level.getBlockState(p.pos());
 			if (p.type() != COBBLE && p.type() != CROP && p.type() != WATER && p.type() != TORCH && !cur.isAir() && !cur.canBeReplaced() && !cur.is(BlockTags.LOGS) && !cur.is(BlockTags.LEAVES)) {
-				continue; // ten blok już stoi (np. po wznowieniu budowy)
+				continue; // ten blok już stoi (np. po wznowieniu budowy albo położył go sojusznik) - nie liczy się do tempa
 			}
 			BlockState st = null;
 			switch (p.type()) {
@@ -284,6 +340,8 @@ final class BotBuilder {
 				case WALL -> st = takeWall(inv, false);
 				case COBBLE, COBWALL -> st = take(inv, Items.COBBLESTONE) ? Blocks.COBBLESTONE.defaultBlockState() : null;
 				case BLK -> st = takeBlock(inv);
+				case TABLE -> st = takeMany(inv, Items.OAK_PLANKS, 4) ? Blocks.CRAFTING_TABLE.defaultBlockState() : null;
+				case FURNACE -> st = takeMany(inv, Items.COBBLESTONE, 8) ? Blocks.FURNACE.defaultBlockState() : null;
 				case TORCH -> st = take(inv, Items.TORCH) ? Blocks.TORCH.defaultBlockState() : Blocks.AIR.defaultBlockState();
 				case WATER -> {
 					if (take(inv, Items.WATER_BUCKET)) {
@@ -305,6 +363,7 @@ final class BotBuilder {
 			}
 			level.setBlock(p.pos(), st, 3);
 			last = p;
+			placed++;
 		}
 		if (last != null) { // patrzy na postawiony blok i macha ręką
 			double dx = last.pos().getX() + 0.5 - m.getX(), dz = last.pos().getZ() + 0.5 - m.getZ();
@@ -317,6 +376,13 @@ final class BotBuilder {
 			m.setXRot(pitch);
 			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
 		}
+		return true;
+	}
+
+	/** Zabiera n sztuk przedmiotu albo nic, gdy ich brakuje. */
+	private static boolean takeMany(SimpleContainer c, Item it, int n) {
+		if (count(c, it) < n) return false;
+		for (int i = 0; i < n; i++) take(c, it);
 		return true;
 	}
 
@@ -383,6 +449,36 @@ final class BotBuilder {
 		job.wh = h;
 		job.wy = baseY;
 		return plan;
+	}
+
+	/** Mur sojuszu: duży pierścień (min. 21x21, wysokość 5-7) wokół bazy; każdy członek zaczyna w innym miejscu pierścienia, istniejące bloki pomija. */
+	private static List<P> clanWallPlan(ServerLevel level, String nick, SimpleContainer inv, double[] cb, int[] cw, Job job) {
+		if (countBlocks(inv) < 30) return null; // najpierw zbiera bloki
+		int cx = (int) Math.floor(cb[0]), cz = (int) Math.floor(cb[1]);
+		int pSize = cw[0], h = cw[1], baseY = cw[3];
+		if (pSize == 0) {
+			pSize = Math.max(21, cw[4] + 6) + 2 * RNG.nextInt(2);
+			h = 5 + RNG.nextInt(3);
+			baseY = cw[5] == 1 ? cw[6] : ground(level, cx, cz);
+			BotManager.setClanWall(nick, pSize, h, baseY, false);
+		}
+		List<P> plan = wallCells(level, cx, cz, pSize, h, baseY);
+		if (plan.isEmpty()) return null;
+		java.util.Collections.rotate(plan, -RNG.nextInt(plan.size()));
+		job.wp = pSize;
+		job.wh = h;
+		job.wy = baseY;
+		return plan;
+	}
+
+	/** Warsztat: piec, stół do craftingu i pochodnia przy kamiennym słupku. */
+	private static List<P> workshopPlan(BlockPos o) {
+		List<P> l = new ArrayList<>();
+		l.add(new P(o.offset(0, 0, 0), FURNACE));
+		l.add(new P(o.offset(1, 0, 0), TABLE));
+		l.add(new P(o.offset(2, 0, 0), COBWALL));
+		l.add(new P(o.offset(2, 1, 0), TORCH));
+		return l;
 	}
 
 	private static List<P> wallCells(ServerLevel level, int cx, int cz, int pSize, int h, int baseY) {
@@ -557,6 +653,47 @@ final class BotBuilder {
 		}
 		for (int x = 0; x < 5; x++) for (int z = 0; z < 5; z++) l.add(new P(o.offset(x, 3, z), COBWALL));
 		l.add(new P(o.offset(2, 0, 3), TORCH));
+		return l;
+	}
+
+	/** Dom dwupiętrowy 7x7 lub 9x9: ściany z bruku (7 bloków), rogi z kłód, podłoga i strop z desek, okna na obu piętrach, wejście od północy. */
+	private static List<P> twoStoryPlan(BlockPos o) {
+		int w = RNG.nextBoolean() ? 7 : 9;
+		List<P> l = new ArrayList<>();
+		for (int x = 0; x < w; x++) for (int z = 0; z < w; z++) l.add(new P(o.offset(x, 3, z), WALL)); // strop między piętrami
+		for (int y = 0; y < 7; y++) {
+			for (int x = 0; x < w; x++) {
+				for (int z = 0; z < w; z++) {
+					if (!(x == 0 || x == w - 1 || z == 0 || z == w - 1)) continue;
+					if (x == w / 2 && z == 0 && y < 2) continue; // wejście 1x2
+					boolean win = (y == 1 || y == 5) && ((z == w / 2 && (x == 0 || x == w - 1)) || (x == w / 2 && z == w - 1));
+					if (win) continue;
+					boolean corner = (x == 0 || x == w - 1) && (z == 0 || z == w - 1);
+					l.add(new P(o.offset(x, y, z), corner ? CORNER : COBWALL));
+				}
+			}
+		}
+		for (int x = 0; x < w; x++) for (int z = 0; z < w; z++) l.add(new P(o.offset(x, 7, z), WALL)); // dach
+		l.add(new P(o.offset(1, 0, w - 2), TORCH));
+		l.add(new P(o.offset(1, 4, w - 2), TORCH));
+		return l;
+	}
+
+	/** Obelisk: podstawa 3x3 i smukła kolumna do 11 bloków z pochodnią na szczycie. */
+	private static List<P> obeliskPlan(BlockPos o) {
+		List<P> l = new ArrayList<>();
+		for (int x = 0; x < 3; x++) for (int z = 0; z < 3; z++) l.add(new P(o.offset(x, 0, z), COBWALL));
+		for (int y = 1; y <= 10; y++) l.add(new P(o.offset(1, y, 1), COBWALL));
+		l.add(new P(o.offset(1, 11, 1), TORCH));
+		return l;
+	}
+
+	/** Altana: 4 słupy z kłód 5x5 o wysokości 4 i dach z desek. */
+	private static List<P> pavilionPlan(BlockPos o) {
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 4; y++) for (int x = 0; x <= 4; x += 4) for (int z = 0; z <= 4; z += 4) l.add(new P(o.offset(x, y, z), CORNER));
+		for (int x = 0; x < 5; x++) for (int z = 0; z < 5; z++) l.add(new P(o.offset(x, 4, z), WALL));
+		l.add(new P(o.offset(2, 0, 2), TORCH));
 		return l;
 	}
 

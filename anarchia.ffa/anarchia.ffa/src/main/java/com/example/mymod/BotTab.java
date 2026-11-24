@@ -58,20 +58,17 @@ final class BotTab {
 		Class<?>[] types = new Class<?>[rc.length];
 		Object[] args = new Object[rc.length];
 		UUID id = idOf(r.nick());
-		for (int i = 0; i < rc.length; i++) {
-			types[i] = rc[i].getType();
-			Object v = switch (rc[i].getName()) {
-				case "profileId" -> id;
-				case "profile" -> new GameProfile(id, r.nick());
-				case "listed" -> Boolean.TRUE;
-				case "latency" -> Integer.valueOf(0);
-				case "gameMode" -> GameType.SURVIVAL;
-				case "displayName" -> label(r);
-				case "showHat" -> Boolean.FALSE;
-				case "listOrder" -> Integer.valueOf(r.online() ? -1 : -2); // po prawdziwych graczach
-				default -> null;
-			};
-			if (v == null && types[i].isPrimitive()) v = types[i] == boolean.class ? (Object) Boolean.FALSE : (Object) Integer.valueOf(0);
+		int boolIdx = 0, intIdx = 0;
+		for (int i = 0; i < rc.length; i++) { // dopasowanie po typie (nazwy pól mogą się różnić między wersjami)
+			Class<?> t = rc[i].getType();
+			types[i] = t;
+			Object v = null;
+			if (t == UUID.class) v = id;
+			else if (t == GameProfile.class) v = new GameProfile(id, r.nick());
+			else if (t == GameType.class) v = GameType.SURVIVAL;
+			else if (t == Component.class) v = label(r);
+			else if (t == boolean.class) v = boolIdx++ == 0 ? Boolean.TRUE : Boolean.FALSE; // listed, potem showHat
+			else if (t == int.class) v = intIdx++ == 0 ? Integer.valueOf(0) : Integer.valueOf(r.online() ? -1 : -2); // latency, potem listOrder
 			args[i] = v;
 		}
 		Constructor<?> k = c.getDeclaredConstructor(types);
@@ -79,11 +76,28 @@ final class BotTab {
 		return (ClientboundPlayerInfoUpdatePacket.Entry) k.newInstance(args);
 	}
 
+	private static Constructor<ClientboundPlayerInfoUpdatePacket> packetCtor() throws Exception {
+		for (Constructor<?> k : ClientboundPlayerInfoUpdatePacket.class.getDeclaredConstructors()) {
+			Class<?>[] pt = k.getParameterTypes();
+			if (pt.length == 2 && pt[0] == EnumSet.class && List.class.isAssignableFrom(pt[1])) {
+				k.setAccessible(true);
+				@SuppressWarnings("unchecked")
+				Constructor<ClientboundPlayerInfoUpdatePacket> ck = (Constructor<ClientboundPlayerInfoUpdatePacket>) k;
+				// konstruktor (EnumSet, Collection<ServerPlayer>) też pasuje do List - pomijamy go po typie elementu w razie błędu przy wywołaniu
+				return ck;
+			}
+		}
+		throw new NoSuchMethodException("brak konstruktora (EnumSet, List) w ClientboundPlayerInfoUpdatePacket");
+	}
+
+	private static int logged;
+
 	private static void send(ServerPlayer p) {
 		if (failed) return;
 		try {
 			List<ClientboundPlayerInfoUpdatePacket.Entry> entries = new ArrayList<>();
 			for (BotManager.TabRow r : BotManager.tabRows()) entries.add(entry(r));
+			if (entries.isEmpty()) return;
 			EnumSet<ClientboundPlayerInfoUpdatePacket.Action> acts = EnumSet.noneOf(ClientboundPlayerInfoUpdatePacket.Action.class);
 			for (String n : new String[] {"ADD_PLAYER", "UPDATE_LISTED", "UPDATE_LATENCY", "UPDATE_GAME_MODE", "UPDATE_DISPLAY_NAME", "UPDATE_LIST_ORDER"}) {
 				try {
@@ -92,12 +106,13 @@ final class BotTab {
 					// ta wersja gry nie ma takiej akcji
 				}
 			}
-			Constructor<ClientboundPlayerInfoUpdatePacket> k = ClientboundPlayerInfoUpdatePacket.class.getDeclaredConstructor(EnumSet.class, List.class);
-			k.setAccessible(true);
-			p.connection.send(k.newInstance(acts, entries));
-		} catch (Exception e) {
-			failed = true;
-			MyMod.LOGGER.warn("Lista TAB z botami wyłączona: {}", e.toString());
+			p.connection.send(packetCtor().newInstance(acts, entries));
+			if (logged++ < 3) MyMod.LOGGER.info("Lista TAB: wysłano {} botów do {} (akcje: {})", entries.size(), p.getName().getString(), acts);
+		} catch (NoSuchMethodException e) {
+			failed = true; // tej wersji gry nie da się obsłużyć - nie ponawiamy
+			MyMod.LOGGER.warn("Lista TAB z botami wyłączona (brak konstruktora pakietu): {}", e.toString());
+		} catch (Throwable e) {
+			if (logged++ < 6) MyMod.LOGGER.warn("Lista TAB z botami: błąd wysyłania, spróbuję ponownie za 5 s", e);
 		}
 	}
 }
