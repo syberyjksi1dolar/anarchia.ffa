@@ -102,6 +102,9 @@ public final class SkrzynieManager {
 		}
 		o.given = true;
 		RegistryAccess ra = server.registryAccess();
+		if (sp != null) {
+			announce(server, sp.getGameProfile().name(), o.crate, o.reward);
+		}
 		for (ItemStack s : o.crate.entries().get(o.reward).give().apply(ra)) {
 			if (sp == null || !sp.getInventory().add(s)) {
 				if (sp != null) {
@@ -189,6 +192,86 @@ public final class SkrzynieManager {
 		OPENINGS.add(o);
 	}
 
+	// ---------- komenda /skrzynia oraz boty ----------
+
+	private static String norm(String x) {
+		String n = java.text.Normalizer.normalize(x, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+		return n.toLowerCase(java.util.Locale.ROOT).replace('ł', 'l').replace(' ', '_');
+	}
+
+	public static Crates.Crate find(String raw) {
+		String k = norm(raw);
+		for (Crates.Crate c : Crates.all()) {
+			if (norm(c.id()).equals(k) || norm(c.name()).equals(k)) {
+				return c;
+			}
+		}
+		return null;
+	}
+
+	static void announce(MinecraftServer server, String nick, Crates.Crate crate, int reward) {
+		ItemStack icon = crate.entries().get(reward).icon().apply(server.registryAccess());
+		server.getPlayerList().broadcastSystemMessage(Component.literal("Gracz " + nick + " otworzył skrzynię " + crate.name() + " i trafił ")
+				.append(icon.getHoverName()), false);
+	}
+
+	/** /skrzynia nazwa - otwiera skrzynię z animacją bez stawiania bloku (zużywa klucz). */
+	public static int openByCommand(ServerPlayer sp, String name) {
+		Crates.Crate crate = find(name);
+		if (crate == null) {
+			sp.sendSystemMessage(Component.literal("Nie ma takiej skrzyni: " + name));
+			return 0;
+		}
+		if (BUSY.contains(sp.getUUID())) {
+			return 0;
+		}
+		var container = preview(crate, sp.level().registryAccess());
+		sp.openMenu(new net.minecraft.world.SimpleMenuProvider(
+				(id, inv, p) -> new SkrzyniaMenu(id, inv, container, crate, sp.blockPosition()),
+				Component.literal(crate.name())));
+		if (sp.containerMenu instanceof SkrzyniaMenu m) {
+			request(sp, m, true);
+		}
+		return 1;
+	}
+
+	private static final java.util.Map<String, Object[]> BOT_OPEN = new java.util.HashMap<>(); // nick -> {crate, reward, koniec}
+
+	/** Wywoływane co 0,5 s dla bota: jeśli ma klucz, otwiera skrzynię z animacją (5 s), potem komunikat na czacie. */
+	public static void botTick(ServerLevel level, String nick, net.minecraft.world.SimpleContainer inv) {
+		long now = level.getGameTime();
+		Object[] st = BOT_OPEN.get(nick);
+		if (st != null) {
+			if (now < (Long) st[2]) {
+				return;
+			}
+			BOT_OPEN.remove(nick);
+			Crates.Crate crate = (Crates.Crate) st[0];
+			int reward = (Integer) st[1];
+			for (ItemStack s : crate.entries().get(reward).give().apply(level.registryAccess())) {
+				inv.addItem(s);
+			}
+			announce(level.getServer(), nick, crate, reward);
+			return;
+		}
+		if (level.getRandom().nextInt(10) != 0) {
+			return;
+		}
+		for (Crates.Crate c : Crates.all()) {
+			if (c.entries().isEmpty()) {
+				continue;
+			}
+			for (int i = 0; i < inv.getContainerSize(); i++) {
+				ItemStack s = inv.getItem(i);
+				if (s.is(c.key())) {
+					s.shrink(1);
+					BOT_OPEN.put(nick, new Object[] { c, level.getRandom().nextInt(c.entries().size()), now + ANIM_TICKS });
+					return;
+				}
+			}
+		}
+	}
+
 	public static void initialize() {
 		// Skrzynie są nie do zniszczenia, także w trybie kreatywnym.
 		PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) -> !(state.getBlock() instanceof CrateBlock));
@@ -206,6 +289,20 @@ public final class SkrzynieManager {
 			}
 			return true;
 		});
+
+		net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback.EVENT.register((d, reg, env) -> d.register(
+				net.minecraft.commands.Commands.literal("skrzynia").then(net.minecraft.commands.Commands
+						.argument("nazwa", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+						.suggests((c, b) -> {
+							for (Crates.Crate cr : Crates.all()) {
+								b.suggest(cr.id());
+							}
+							return b.buildFuture();
+						})
+						.executes(c -> {
+							ServerPlayer p = c.getSource().getPlayerOrException();
+							return openByCommand(p, com.mojang.brigadier.arguments.StringArgumentType.getString(c, "nazwa"));
+						}))));
 
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			Iterator<Opening> it = OPENINGS.iterator();

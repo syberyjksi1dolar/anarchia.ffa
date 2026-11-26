@@ -249,6 +249,12 @@ final class BotBuilder {
 			if (cob >= 200 && wall >= 100) { kinds.add(10); kinds.add(10); }
 			if (cob >= 25) { kinds.add(11); kinds.add(11); }
 			if (wall >= 45) { kinds.add(12); kinds.add(12); }
+			// struktury jak we wsiach osadników
+			if (wall >= 110) { kinds.add(13); kinds.add(13); kinds.add(13); } // chata z dwuspadowym dachem
+			if (cob >= 8 && wall >= 12) kinds.add(14); // studnia
+			if (cob >= 125 && wall >= 4) kinds.add(15); // kuźnia
+			if (cob >= 130 && wall >= 55) kinds.add(16); // kaplica
+			if (cob >= 100) kinds.add(17); // plac z drogami
 			if (kinds.isEmpty()) return false;
 			int kind = kinds.get(RNG.nextInt(kinds.size()));
 			int farmN = seeds >= 80 ? 9 : seeds >= 24 ? 5 : 3;
@@ -265,6 +271,11 @@ final class BotBuilder {
 				case 10 -> 9;
 				case 11 -> 3;
 				case 12 -> 5;
+				case 13 -> 9;
+				case 14 -> 3;
+				case 15 -> 7;
+				case 16 -> 9;
+				case 17 -> 13;
 				default -> 9;
 			};
 			int clear = switch (kind) {
@@ -275,9 +286,19 @@ final class BotBuilder {
 				case 7, 12 -> 6;
 				case 10 -> 10;
 				case 11 -> 12;
+				case 13 -> 8;
+				case 14, 17 -> 6;
+				case 15 -> 5;
+				case 16 -> 9;
 				default -> 3;
 			};
 			BlockPos o = findSpot(level, nick, size, clear, site, swi, !inClan);
+			if (kind == 5) { // baza: min. 14 bloków od cudzej bazy
+				for (int t = 0; t < 8 && o != null && !BotManager.baseGapOk(nick, o.getX() + 5.5, o.getZ() + 5.5, 6); t++) {
+					o = findSpot(level, nick, size, clear, site, swi, !inClan);
+				}
+				if (o != null && !BotManager.baseGapOk(nick, o.getX() + 5.5, o.getZ() + 5.5, 6)) return false;
+			}
 			if (o == null && kind == 0) { // dom: próbuje mniejszy
 				size = 9;
 				o = findSpot(level, nick, size, clear, site, swi, !inClan);
@@ -301,6 +322,11 @@ final class BotBuilder {
 				case 10 -> twoStoryPlan(o);
 				case 11 -> obeliskPlan(o);
 				case 12 -> pavilionPlan(o);
+				case 13 -> cottagePlan(o, wall, cob);
+				case 14 -> wellPlan(o, count(inv, Items.WATER_BUCKET) >= 1 && kind == 14);
+				case 15 -> smithyPlan(o);
+				case 16 -> chapelPlan(o);
+				case 17 -> villageSquarePlan(o);
 				default -> plazaPlan(o);
 			};
 			if (plan == null || plan.isEmpty()) return false;
@@ -316,7 +342,7 @@ final class BotBuilder {
 			return false;
 		}
 		// jak prawdziwy gracz: raz stawia kilka bloków pod rząd, raz rozgląda się i macha ręką
-		if (RNG.nextInt(7) == 0) {
+		if (j.kind == 0 && RNG.nextInt(7) == 0) {
 			float yaw = RNG.nextFloat() * 360f - 180f;
 			m.setYRot(yaw);
 			m.setYHeadRot(yaw);
@@ -325,10 +351,10 @@ final class BotBuilder {
 			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
 			return true;
 		}
-		int burst = j.kind != 0 ? 3 + RNG.nextInt(2) : 1 + RNG.nextInt(3); // mury powstają o ok. 80% szybciej
+		int burst = j.kind != 0 ? Integer.MAX_VALUE : 1 + RNG.nextInt(3); // mury (własny i sojuszu) powstają od razu w całości, reszta normalnie
 		P last = null;
 		int placed = 0, scanned = 0;
-		while (placed < burst && j.idx < j.plan.size() && scanned++ < 600) {
+		while (placed < burst && j.idx < j.plan.size() && scanned++ < 20000) {
 			P p = j.plan.get(j.idx++);
 			BlockState cur = level.getBlockState(p.pos());
 			if (p.type() != COBBLE && p.type() != CROP && p.type() != WATER && p.type() != TORCH && !cur.isAir() && !cur.canBeReplaced() && !cur.is(BlockTags.LOGS) && !cur.is(BlockTags.LEAVES)) {
@@ -694,6 +720,118 @@ final class BotBuilder {
 		for (int y = 0; y < 4; y++) for (int x = 0; x <= 4; x += 4) for (int z = 0; z <= 4; z += 4) l.add(new P(o.offset(x, y, z), CORNER));
 		for (int x = 0; x < 5; x++) for (int z = 0; z < 5; z++) l.add(new P(o.offset(x, 4, z), WALL));
 		l.add(new P(o.offset(2, 0, 2), TORCH));
+		return l;
+	}
+
+	/** Chata jak z wioski: 7x5 albo 9x7, ściany z desek, rogi z kłód, okna, drzwi i dwuspadowy dach z desek. */
+	private static List<P> cottagePlan(BlockPos o, int wall, int cob) {
+		int w = wall >= 170 && RNG.nextBoolean() ? 9 : 7;
+		int d = w == 9 ? 7 : 5;
+		int per = 2 * (w + d) - 4;
+		List<P> l = new ArrayList<>();
+		if (cob >= w * d) for (int x = 0; x < w; x++) for (int z = 0; z < d; z++) l.add(new P(o.offset(x, -1, z), COBBLE));
+		int doorX = w / 2;
+		for (int y = 0; y < 3; y++) {
+			for (int x = 0; x < w; x++) {
+				for (int z = 0; z < d; z++) {
+					if (!(x == 0 || x == w - 1 || z == 0 || z == d - 1)) continue;
+					if (x == doorX && z == 0 && y < 2) continue; // drzwi 1x2
+					boolean win = y == 1 && ((z == d / 2 && (x == 0 || x == w - 1)) || (z == d - 1 && x == doorX) || (z == 0 && (x == 1 || x == w - 2)));
+					if (win) continue;
+					boolean corner = (x == 0 || x == w - 1) && (z == 0 || z == d - 1);
+					l.add(new P(o.offset(x, y, z), corner ? CORNER : WALL));
+				}
+			}
+		}
+		int layers = (d + 1) / 2;
+		for (int k = 0; k < layers; k++) { // dach: kolejne rzędy schodkowo ku grzbietowi
+			int y = 3 + k;
+			int z1 = k, z2 = d - 1 - k;
+			for (int x = 0; x < w; x++) {
+				l.add(new P(o.offset(x, y, z1), WALL));
+				if (z2 != z1) l.add(new P(o.offset(x, y, z2), WALL));
+			}
+			if (k > 0) { // szczyty: wypełnienie ścian bocznych pod dachem
+				for (int z = z1; z <= z2; z++) {
+					l.add(new P(o.offset(0, y - 1, z), WALL));
+					l.add(new P(o.offset(w - 1, y - 1, z), WALL));
+				}
+			}
+		}
+		l.add(new P(o.offset(1, 0, d - 2), TORCH));
+		return l;
+	}
+
+	/** Studnia: kamienny obrys 3x3, w środku woda (jeśli bot ma wiadro), słupy z kłód w rogach i daszek z desek. */
+	private static List<P> wellPlan(BlockPos o, boolean water) {
+		List<P> l = new ArrayList<>();
+		for (int x = 0; x < 3; x++) for (int z = 0; z < 3; z++) if (!(x == 1 && z == 1)) l.add(new P(o.offset(x, 0, z), COBWALL));
+		if (water) l.add(new P(o.offset(1, 0, 1), WATER));
+		for (int y = 1; y <= 3; y++) for (int x = 0; x <= 2; x += 2) for (int z = 0; z <= 2; z += 2) l.add(new P(o.offset(x, y, z), CORNER));
+		for (int x = 0; x < 3; x++) for (int z = 0; z < 3; z++) l.add(new P(o.offset(x, 4, z), WALL));
+		return l;
+	}
+
+	/** Kuźnia: 7x5 z bruku, dach z bruku, dwa piece i stół w środku, drzwi i pochodnie. */
+	private static List<P> smithyPlan(BlockPos o) {
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 3; y++) {
+			for (int x = 0; x < 7; x++) {
+				for (int z = 0; z < 5; z++) {
+					if (!(x == 0 || x == 6 || z == 0 || z == 4)) continue;
+					if (x == 3 && z == 0 && y < 2) continue; // wejście 1x2
+					l.add(new P(o.offset(x, y, z), COBWALL));
+				}
+			}
+		}
+		for (int x = 0; x < 7; x++) for (int z = 0; z < 5; z++) l.add(new P(o.offset(x, 3, z), COBWALL));
+		l.add(new P(o.offset(1, 0, 3), FURNACE));
+		l.add(new P(o.offset(2, 0, 3), FURNACE));
+		l.add(new P(o.offset(5, 0, 3), TABLE));
+		l.add(new P(o.offset(3, 0, 3), TORCH));
+		return l;
+	}
+
+	/** Kaplica: hala 5x9 z bruku (wysokość 5), dwuspadowy dach z desek, wejście od frontu, okna i pochodnie. */
+	private static List<P> chapelPlan(BlockPos o) {
+		List<P> l = new ArrayList<>();
+		for (int y = 0; y < 5; y++) {
+			for (int x = 0; x < 5; x++) {
+				for (int z = 0; z < 9; z++) {
+					if (!(x == 0 || x == 4 || z == 0 || z == 8)) continue;
+					if (x == 2 && z == 0 && y < 3) continue; // wysokie wejście 1x3
+					if ((y == 2 || y == 3) && (x == 0 || x == 4) && (z == 2 || z == 4 || z == 6)) continue; // okna
+					l.add(new P(o.offset(x, y, z), COBWALL));
+				}
+			}
+		}
+		for (int k = 0; k < 3; k++) { // dach wzdłuż hali
+			int y = 5 + k, x1 = k, x2 = 4 - k;
+			for (int z = 0; z < 9; z++) {
+				l.add(new P(o.offset(x1, y, z), WALL));
+				if (x2 != x1) l.add(new P(o.offset(x2, y, z), WALL));
+			}
+			if (k > 0) {
+				for (int x = x1; x <= x2; x++) {
+					l.add(new P(o.offset(x, y - 1, 0), WALL));
+					l.add(new P(o.offset(x, y - 1, 8), WALL));
+				}
+			}
+		}
+		l.add(new P(o.offset(1, 0, 6), TORCH));
+		l.add(new P(o.offset(3, 0, 6), TORCH));
+		return l;
+	}
+
+	/** Plac wioski: dwie brukowe drogi szerokości 3 w kształcie krzyża (13x13) i cztery latarnie na końcach. */
+	private static List<P> villageSquarePlan(BlockPos o) {
+		List<P> l = new ArrayList<>();
+		for (int x = 0; x < 13; x++) for (int z = 0; z < 13; z++) if (Math.abs(x - 6) <= 1 || Math.abs(z - 6) <= 1) l.add(new P(o.offset(x, -1, z), COBBLE));
+		int[][] ends = {{5, 0}, {7, 12}, {0, 7}, {12, 5}};
+		for (int[] e : ends) {
+			for (int y = 0; y < 3; y++) l.add(new P(o.offset(e[0], y, e[1]), COBWALL));
+			l.add(new P(o.offset(e[0], 3, e[1]), TORCH));
+		}
 		return l;
 	}
 

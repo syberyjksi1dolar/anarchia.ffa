@@ -116,6 +116,20 @@ final class BotEvents {
 				}
 				if (bad) cooldown(nick, "cieple_mleko", now, 100);
 			}
+			// zwykłe złote jabłko, gdy życie spada poniżej 40%
+			if (hp < max * 0.4f && ready(nick, "zlote_jablko_bot", now)) {
+				for (int gi = 0; gi < c.getContainerSize(); gi++) {
+					ItemStack ga = c.getItem(gi);
+					if (ga.is(net.minecraft.world.item.Items.GOLDEN_APPLE)) {
+						ga.shrink(1);
+						m.setHealth(Math.min(max, hp + 8f));
+						m.setAbsorptionAmount(Math.max(m.getAbsorptionAmount(), 4f));
+						EffectUtil.give(m, "regeneration", 100, 1);
+						cooldown(nick, "zlote_jablko_bot", now, 100);
+						break;
+					}
+				}
+			}
 			// leczenie, gdy mało życia
 			if (hp < max * 0.55f) {
 				int i;

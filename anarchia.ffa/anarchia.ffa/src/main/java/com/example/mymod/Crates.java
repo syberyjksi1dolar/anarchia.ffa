@@ -56,7 +56,7 @@ public final class Crates {
 		return new Entry(ra -> List.of(make.apply(ra)), make);
 	}
 
-	private static ItemStack enchanted(RegistryAccess ra, Item item, Object... pairs) {
+	static ItemStack enchanted(RegistryAccess ra, Item item, Object... pairs) {
 		ItemStack s = new ItemStack(item);
 		for (int i = 0; i + 1 < pairs.length; i += 2) {
 			@SuppressWarnings("unchecked")

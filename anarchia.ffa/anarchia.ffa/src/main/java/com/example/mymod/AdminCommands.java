@@ -259,10 +259,22 @@ public final class AdminCommands {
 		}
 	}
 
+	/** Podpowiedzi nicków: wszystkie boty i gracze online (do /II i innych komend związanych z botami). */
+	static final com.mojang.brigadier.suggestion.SuggestionProvider<CommandSourceStack> NICKS = (ctx, b) -> {
+		String rem = b.getRemainingLowerCase();
+		for (String n : BotManager.nicks()) if (n.toLowerCase().startsWith(rem)) b.suggest(n);
+		for (ServerPlayer p : ctx.getSource().getServer().getPlayerList().getPlayers()) {
+			String n = p.getName().getString();
+			if (n.toLowerCase().startsWith(rem)) b.suggest(n);
+		}
+		return b.buildFuture();
+	};
+
 	public static void initialize() {
+		BotMsg.initialize();
 		CommandRegistrationCallback.EVENT.register((d, reg, env) -> {
 			for (String lit : new String[] {"II", "ii"}) {
-				d.register(Commands.literal(lit).then(Commands.argument("nick", StringArgumentType.word())
+				d.register(Commands.literal(lit).then(Commands.argument("nick", StringArgumentType.word()).suggests(NICKS)
 						.executes(ctx -> openInv(ctx.getSource(), StringArgumentType.getString(ctx, "nick")))));
 			}
 			for (String lit : new String[] {"stwórz", "stworz"}) {

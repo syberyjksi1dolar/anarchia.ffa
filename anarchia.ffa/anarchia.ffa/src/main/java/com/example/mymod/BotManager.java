@@ -144,6 +144,13 @@ public final class BotManager {
 	}
 
 	// ---------- API ekwipunku ----------
+	/** Nick bota bez względu na wielkość liter albo null. */
+	public static String findNick(String raw) {
+		if (raw == null) return null;
+		for (Rec r : ROSTER) if (r.nick.equalsIgnoreCase(raw)) return r.nick;
+		return null;
+	}
+
 	public static List<String> nicks() {
 		List<String> l = new ArrayList<>();
 		for (Rec r : ROSTER) l.add(r.nick);
@@ -321,7 +328,10 @@ public final class BotManager {
 			}
 		});
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_UNLOAD.register((entity, world) -> {
-			if (entity instanceof ItemEntity ie) PLAYER_ITEMS.remove(ie.getUUID());
+			if (entity instanceof ItemEntity ie) {
+				PLAYER_ITEMS.remove(ie.getUUID());
+				OWN_DROPS.remove(ie.getUUID());
+			}
 		});
 		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (source.getEntity() instanceof Mannequin km && isBot(km)) {
@@ -329,6 +339,51 @@ public final class BotManager {
 					if (e.getValue().entity == km) {
 						Rec kr = recOf(e.getKey());
 						if (kr != null) kr.kills++;
+					}
+				}
+			}
+		});
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			if (!(entity instanceof Mannequin vm) || !isBot(vm) || !(entity.level() instanceof ServerLevel lv)) return;
+			String vn = null, kn = null;
+			for (Map.Entry<String, State> e : STATES.entrySet()) {
+				if (e.getValue().entity == vm) vn = e.getKey();
+				if (source.getEntity() != null && e.getValue().entity == source.getEntity()) kn = e.getKey();
+			}
+			if (vn == null) return;
+			String killerName = source.getEntity() instanceof ServerPlayer kp ? kp.getGameProfile().name() : kn;
+			lv.getServer().getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(killerName != null
+					? "☠ Gracz " + vn + " umarł od gracza " + killerName : "☠ Gracz " + vn + " umarł")
+					.withStyle(net.minecraft.ChatFormatting.RED), false);
+			int vs = STREAK.getOrDefault(vn, 0);
+			STREAK.remove(vn);
+			if (source.getEntity() instanceof ServerPlayer gp) {
+				GRUDGE.put(vn, gp.getUUID());
+				BotChat.say(lv.getServer(), vn, "zapamiętam cię, " + gp.getGameProfile().name() + " 😡");
+			}
+			if (kn != null) {
+				if (vs >= 5) { // nagroda za głowę zabójcy serii
+					Pieniadze.addAll(Map.of("bot:" + kn, 200L * vs));
+					lv.getServer().getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("💰 " + kn + " zdobył nagrodę za głowę " + vn
+							+ " (seria " + vs + " zabójstw): $" + 200 * vs).withStyle(net.minecraft.ChatFormatting.GOLD), false);
+				}
+				int ks = STREAK.merge(kn, 1, Integer::sum);
+				if (ks % 5 == 0) {
+					lv.getServer().getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("🔥 " + kn + " ma serię " + ks
+							+ " zabójstw! Za jego głowę jest nagroda: $" + 200 * ks).withStyle(net.minecraft.ChatFormatting.GOLD), false);
+				}
+				// zemsta: sojusznicy poległego z okolicy ruszają na zabójcę
+				String vc = clanOf(vn);
+				State kst = STATES.get(kn);
+				if (vc != null && kst != null && kst.entity != null && !vc.equals(clanOf(kn))) {
+					for (Map.Entry<String, State> e : STATES.entrySet()) {
+						State a = e.getValue();
+						if (a.entity == null || a.entity == vm || !a.entity.isAlive() || a.foe != null || a.foeP != null || !vc.equals(clanOf(e.getKey()))) continue;
+						if (a.entity.distanceToSqr(vm) < 60 * 60) {
+							a.foe = kn;
+							a.fight = 600;
+							BotChat.say(lv.getServer(), e.getKey(), "Zemsta za " + vn + "!");
+						}
 					}
 				}
 			}
@@ -344,7 +399,11 @@ public final class BotManager {
 	/** Pierwsze wrażenie bota o graczu: 0 = ignoruje (40%), 1 = atakuje (50%), 2 = proponuje sojusz (10%); ważne ok. 5 minut. */
 	private static final Map<String, long[]> SIGHT = new java.util.HashMap<>();
 
+	/** Gracz, który zabił bota, jest dla niego wrogiem numer 1 (po odrodzeniu bot go atakuje i pamięta). */
+	private static final Map<String, java.util.UUID> GRUDGE = new java.util.HashMap<>();
+
 	private static int sightDecision(String nick, ServerPlayer p, long now) {
+		if (p.getUUID().equals(GRUDGE.get(nick))) return 1;
 		String key = nick + "|" + p.getUUID();
 		long[] v = SIGHT.get(key);
 		if (v == null || v[1] < now) {
@@ -450,6 +509,7 @@ public final class BotManager {
 		SRV = server;
 		crouchTick(server);
 		if (server.getTickCount() % 20 == 7) allianceTags(server);
+		guildWars(server);
 		ServerLevel level = server.overworld();
 		if (level == null) return;
 		if (!cleaned) {
@@ -521,6 +581,11 @@ public final class BotManager {
 		} else if (r.hasHome) { // po śmierci wraca tam, gdzie pojawił się po raz pierwszy
 			x = r.hx;
 			z = r.hz;
+			double[] fr = freeNear(level, r.nick, x, z); // nie pojawia się na innym bocie
+			if (fr != null) {
+				x = fr[0];
+				z = fr[1];
+			}
 		} else if (isWaterAt(level, x, z)) { // nie pojawiamy się na wodzie (boty nie umieją pływać)
 			x = SPAWN_X + RNG.nextInt(7) - 3;
 			z = SPAWN_Z + RNG.nextInt(7) - 3;
@@ -575,6 +640,15 @@ public final class BotManager {
 		}
 	}
 
+	/** Przedmioty wyrzucone przy śmierci bota: ten sam bot ich nie podnosi z powrotem (stary kit i eventówka przepadają), inne boty i gracze mogą. */
+	private static final Map<java.util.UUID, String> OWN_DROPS = new java.util.concurrent.ConcurrentHashMap<>();
+
+	private static void dropOwn(ServerLevel level, Rec r, State s, ItemStack st) {
+		ItemEntity ie = new ItemEntity(level, s.lx, s.ly + 0.5, s.lz, st);
+		OWN_DROPS.put(ie.getUUID(), r.nick);
+		level.addFreshEntity(ie);
+	}
+
 	private static void dropAll(ServerLevel level, Rec r, State s) {
 		r.deaths++;
 		BotChat.event(level.getServer(), "death", r.nick);
@@ -586,7 +660,7 @@ public final class BotManager {
 				try {
 					ItemStack w = dead.getItemBySlot(sl);
 					if (!w.isEmpty()) { // noszony ubiór też wypada
-						level.addFreshEntity(new ItemEntity(level, s.lx, s.ly + 0.5, s.lz, w.copy()));
+						dropOwn(level, r, s, w.copy());
 						dead.setItemSlot(sl, ItemStack.EMPTY);
 					}
 				} catch (Exception e) {
@@ -597,9 +671,7 @@ public final class BotManager {
 		SimpleContainer c = inv(r.nick);
 		for (int i = 0; i < c.getContainerSize(); i++) { // cały ekwipunek (kit, eventówki, materiały) wypada na ziemię
 			ItemStack st = c.removeItemNoUpdate(i);
-			if (!st.isEmpty()) {
-				level.addFreshEntity(new ItemEntity(level, s.lx, s.ly + 0.5, s.lz, st));
-			}
+			if (!st.isEmpty()) dropOwn(level, r, s, st);
 		}
 		fillKit(c, 1 + RNG.nextInt(10)); // odradza się z nowym, innym kitem (bez eventówki)
 		saveInv();
@@ -609,12 +681,14 @@ public final class BotManager {
 	private static void activity(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
 		BotEvents.tick(level, r.nick, m, foeOf(level, s));
+		SkrzynieManager.botTick(level, r.nick, inv(r.nick));
+		CodzienneMisje.botTick(level, r.nick, inv(r.nick), m);
 		if (s.foe == null && s.foeP == null && s.mine == null && s.tourPts == null && !BotBuilder.busy(r.nick)) BotCraft.tick(level, r.nick, m); // piec, crafting, rozwój sprzętu
 		if (s.fleeT > 0) s.fleeT -= 10;
 		if (s.foe == null && s.foeP == null && s.mine == null && !BotBuilder.busy(r.nick) && s.rtpT <= 0) seekWood(level, r, s);
 		AABB near = m.getBoundingBox().inflate(1.5, 1.0, 1.5);
 		for (ItemEntity ie : level.getEntitiesOfClass(ItemEntity.class, near)) {
-			if (ie.isRemoved() || PLAYER_ITEMS.contains(ie.getUUID())) continue; // rzeczy graczy zostają na ziemi
+			if (ie.isRemoved() || PLAYER_ITEMS.contains(ie.getUUID()) || r.nick.equals(OWN_DROPS.get(ie.getUUID()))) continue; // rzeczy graczy zostają na ziemi
 			ItemStack st = ie.getItem();
 			if (st.isEmpty()) continue;
 			int before = st.getCount();
@@ -827,20 +901,68 @@ public final class BotManager {
 	}
 
 	/** Losuje miejsce na lądzie w załadowanym terenie, min. 20 bloków od innych botów i poza spawnem; null = brak. */
+	/** Cudze bazy (środek x, z i połowa boku muru): domy botów z murem oraz mury sojuszy; bez baz bota self i jego sojuszu. */
+	public static List<int[]> bases(String self) {
+		Rec me = self == null ? null : recOf(self);
+		List<int[]> l = new ArrayList<>();
+		for (Rec x : ROSTER) {
+			if (!x.hasHome || x.nick.equals(self)) continue;
+			if (me != null && me.clan != null && me.clan.equals(x.clan)) continue; // baza wspólna z sojusznikami
+			l.add(new int[] {(int) Math.floor(x.hx), (int) Math.floor(x.hz), x.wallP > 0 ? x.wallP / 2 : 11});
+			if (x.cwP > 0) l.add(new int[] {(int) Math.floor(x.hx), (int) Math.floor(x.hz), x.cwP / 2});
+		}
+		return l;
+	}
+
+	/** Czy baza o środku (x, z) i połowie boku half jest co najmniej 14 bloków od krawędzi każdej cudzej bazy. */
+	public static boolean baseGapOk(String self, double x, double z, int half) {
+		for (int[] b : bases(self)) {
+			if (Math.max(Math.abs(b[0] - x), Math.abs(b[1] - z)) < half + b[2] + 14) return false;
+		}
+		return true;
+	}
+
 	private static double[] pickSpot(ServerLevel level, String self) {
-		for (int tries = 0; tries < 40; tries++) {
-			double ax = RNG.nextInt(401) - 200 + 0.5, az = RNG.nextInt(401) - 200 + 0.5;
-			if (Math.abs(ax) < 14 && Math.abs(az) < 14) continue;
-			if (!level.hasChunkAt(new BlockPos((int) ax, 64, (int) az))) continue;
-			if (isWaterAt(level, ax, az)) continue;
-			boolean close = false;
-			for (Map.Entry<String, State> e : STATES.entrySet()) {
-				Mannequin o = e.getValue().entity;
-				if (o == null || o.isRemoved() || e.getKey().equals(self)) continue;
-				double dx = o.getX() - ax, dz = o.getZ() - az;
-				if (dx * dx + dz * dz < 400) { close = true; break; }
+		for (int pass = 0; pass < 2; pass++) { // 1. w załadowanych chunkach, 2. szerzej (ładuje chunk)
+			int range = pass == 0 ? 250 : 600;
+			for (int tries = 0; tries < 60; tries++) {
+				double ax = RNG.nextInt(2 * range + 1) - range + 0.5, az = RNG.nextInt(2 * range + 1) - range + 0.5;
+				if (Math.abs(ax) < 14 && Math.abs(az) < 14) continue;
+				if (pass == 0 && !level.hasChunkAt(new BlockPos((int) ax, 64, (int) az))) continue;
+				if (pass == 1) level.getChunk((int) Math.floor(ax) >> 4, (int) Math.floor(az) >> 4);
+				if (isWaterAt(level, ax, az)) continue;
+				boolean close = false;
+				for (Map.Entry<String, State> e : STATES.entrySet()) {
+					Mannequin o = e.getValue().entity;
+					if (o == null || o.isRemoved() || e.getKey().equals(self)) continue;
+					double dx = o.getX() - ax, dz = o.getZ() - az;
+					if (dx * dx + dz * dz < 400) { close = true; break; }
+				}
+				if (!close && baseGapOk(self, ax, az, 11)) return new double[] {ax, az}; // nowa baza min. 14 bloków od cudzej
 			}
-			if (!close) return new double[] {ax, az};
+		}
+		return null;
+	}
+
+	/** Czy w promieniu radius bloków od punktu stoi inny bot. */
+	private static boolean botWithin(String self, double x, double z, double radius) {
+		for (Map.Entry<String, State> e : STATES.entrySet()) {
+			Mannequin o = e.getValue().entity;
+			if (o == null || o.isRemoved() || !o.isAlive() || e.getKey().equals(self)) continue;
+			double dx = o.getX() - x, dz = o.getZ() - z;
+			if (dx * dx + dz * dz < radius * radius) return true;
+		}
+		return false;
+	}
+
+	/** Wolne miejsce przy domu bota (min. 7 bloków od innych botów) albo null, gdy sam dom jest wolny lub nic nie znaleziono. */
+	private static double[] freeNear(ServerLevel level, String self, double hx, double hz) {
+		if (!botWithin(self, hx, hz, 7)) return null;
+		for (int t = 0; t < 40; t++) {
+			double ang = RNG.nextDouble() * Math.PI * 2, rad = 7 + RNG.nextDouble() * 8;
+			double x = hx + Math.cos(ang) * rad, z = hz + Math.sin(ang) * rad;
+			if (!level.hasChunkAt(new BlockPos((int) Math.floor(x), 64, (int) Math.floor(z))) || isWaterAt(level, x, z)) continue;
+			if (!botWithin(self, x, z, 7)) return new double[] {x, z};
 		}
 		return null;
 	}
@@ -853,6 +975,14 @@ public final class BotManager {
 
 	private static boolean inPond(double x, double z) {
 		return x >= POND_X1 && x <= POND_X2 && z >= POND_Z1 && z <= POND_Z2;
+	}
+
+	/** Liczba botów sprzymierzonych z danym graczem (sojusz zawarty kuckami). */
+	public static int allyCount(java.util.UUID player) {
+		String pid = player.toString();
+		int n = 0;
+		for (Rec r : ROSTER) if (pid.equals(r.partner)) n++;
+		return n;
 	}
 
 	public static boolean isBot(Mannequin m) {
@@ -1184,6 +1314,12 @@ public final class BotManager {
 		return null;
 	}
 
+	/** Liczba członków sojuszu bota (0, gdy nie ma sojuszu). */
+	public static int clanMembers(String nick) {
+		Rec r = recOf(nick);
+		return r == null || r.clan == null ? 0 : clanSize(r.clan);
+	}
+
 	private static int clanSize(String clan) {
 		int n = 0;
 		for (Rec r : ROSTER) if (clan.equals(r.clan)) n++;
@@ -1202,6 +1338,59 @@ public final class BotManager {
 		}
 	}
 
+	/** Seria zabójstw bota (do nagrody za głowę). */
+	private static final Map<String, Integer> STREAK = new java.util.HashMap<>();
+
+	/** Wojna gildii: co ok. 10 min dwa sojusze (min. 2 członków) wypowiadają sobie wojnę na 5 min - ich członkowie atakują się z dużej odległości. */
+	private static String warA, warB;
+	private static long warEnd = 0, warNext = 0;
+
+	private static boolean atWar(String c1, String c2) {
+		return warA != null && c1 != null && c2 != null && ((c1.equals(warA) && c2.equals(warB)) || (c1.equals(warB) && c2.equals(warA)));
+	}
+
+	private static void guildWars(MinecraftServer server) {
+		long t = server.getTickCount();
+		if (warA != null) {
+			if (t >= warEnd) {
+				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("Wojna gildii " + warA + " i " + warB + " zakończona.")
+						.withStyle(net.minecraft.ChatFormatting.GRAY), false);
+				warA = null;
+				warB = null;
+				warNext = t + 12000;
+			}
+			return;
+		}
+		if (t < warNext) return;
+		if (warNext == 0) { warNext = t + 6000; return; }
+		java.util.List<String> clans = new java.util.ArrayList<>();
+		for (Rec r : ROSTER) if (r.clan != null && !clans.contains(r.clan) && clanSize(r.clan) >= 2) clans.add(r.clan);
+		warNext = t + 12000;
+		if (clans.size() < 2) return;
+		String a = clans.get(RNG.nextInt(clans.size()));
+		String b;
+		do { b = clans.get(RNG.nextInt(clans.size())); } while (b.equals(a));
+		warA = a;
+		warB = b;
+		warEnd = t + 6000;
+		server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("⚔ Gildia " + a + " wypowiedziała wojnę gildii " + b + "! Wojna potrwa 5 minut.")
+				.withStyle(net.minecraft.ChatFormatting.RED), false);
+	}
+
+	/** Pierwsze spotkanie dwóch botów: 0 = walka (80%), 1 = pokój (15%), 2 = sojusz (5%); ważne ok. 5 minut dla pary. */
+	private static final Map<String, long[]> MEET = new java.util.HashMap<>();
+
+	private static int meetDecision(String a, String b, long now) {
+		String key = a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a;
+		long[] v = MEET.get(key);
+		if (v == null || v[1] < now) {
+			double x = RNG.nextDouble();
+			v = new long[] {x < 0.80 ? 0 : x < 0.95 ? 1 : 2, now + 6000};
+			MEET.put(key, v);
+		}
+		return (int) v[0];
+	}
+
 	/** Bot bez sojuszu, który stoi blisko innego wolnego bota, zaczyna rytuał: 5 szybkich kucnięć w jego stronę. */
 	private static void maybeAlly(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
@@ -1213,6 +1402,7 @@ public final class BotManager {
 			if (o == null || o == m || o.isRemoved() || !o.isAlive() || os.ritual > 0 || os.foe != null || os.foeP != null
 					|| os.mine != null || BotBuilder.busy(e.getKey())) continue;
 			if (o.distanceToSqr(m) > 36) continue;
+			if (meetDecision(r.nick, e.getKey(), level.getGameTime()) != 2) continue; // sojusz tylko w 5% spotkań
 			Rec ro = recOf(e.getKey());
 			if (ro == null || (r.clan != null && ro.clan != null)) continue;
 			String c = r.clan != null ? r.clan : ro.clan;
@@ -1406,7 +1596,7 @@ public final class BotManager {
 	/** Noc według czasu gry (przybliżenie: doba trwa 24000 tików, noc to 13000-23000). */
 	private static boolean isNightTime(ServerLevel level) {
 		long t = level.getGameTime() % 24000L;
-		return t >= 13000L && t < 23000L;
+		return (t >= 13000L && t < 23000L) || level.isRaining(); // w nocy i w deszczu chowają się w domu
 	}
 
 	/** Wyprawa /rtp: odliczanie 5 s, potem teleport w losowe miejsce 1500x1500 (albo z powrotem do domu). */
@@ -1488,6 +1678,58 @@ public final class BotManager {
 		return x >= -14 && x <= 15 && z >= -14 && z <= 15;
 	}
 
+	private static final Map<String, Long> BUFF = new HashMap<>();
+
+	/** Przed walką wysokopoziomowy bot "pije miksturę": siła i szybkość na 30 s (raz na minutę). */
+	private static void buff(ServerLevel level, Rec r, Mannequin m) {
+		if (r.level < 6) return;
+		long now = level.getGameTime();
+		Long last = BUFF.get(r.nick);
+		if (last != null && now - last < 1200) return;
+		BUFF.put(r.nick, now);
+		EffectUtil.give(m, "strength", 600, 0);
+		EffectUtil.give(m, "speed", 600, 0);
+	}
+
+	/** Mało życia i perła w ekwipunku: bot rzuca ją i ląduje przy domu (jeśli teren jest załadowany). */
+	private static boolean pearlHome(ServerLevel level, Rec r, State s) {
+		SimpleContainer c = inv(r.nick);
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack st = c.getItem(i);
+			if (!st.is(Items.ENDER_PEARL)) continue;
+			int hx = (int) Math.floor(r.hx), hz = (int) Math.floor(r.hz);
+			if (!level.hasChunkAt(new BlockPos(hx, 64, hz))) return false;
+			int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, hx, hz);
+			st.shrink(1);
+			s.entity.setPos(r.hx, gy, r.hz);
+			s.foe = null;
+			s.foeP = null;
+			s.retal = false;
+			s.fleeT = 200;
+			s.tx = r.hx;
+			s.tz = r.hz;
+			BotChat.say(level.getServer(), r.nick, "perła i spadam 😅");
+			return true;
+		}
+		return false;
+	}
+
+	/** Czasem bot rzuca pod nogi wroga pajęczynę (jeśli ją ma), żeby go spowolnić. */
+	private static void webTrap(ServerLevel level, Rec r, net.minecraft.world.entity.LivingEntity f) {
+		if (RNG.nextInt(60) != 0) return;
+		SimpleContainer c = inv(r.nick);
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack st = c.getItem(i);
+			if (!st.is(Items.COBWEB)) continue;
+			BlockPos p = f.blockPosition();
+			if (level.getBlockState(p).isAir()) {
+				level.setBlock(p, net.minecraft.world.level.block.Blocks.COBWEB.defaultBlockState(), 3);
+				st.shrink(1);
+			}
+			return;
+		}
+	}
+
 	/** Walka bota z innym botem: podchodzi i bije co ok. 0,6 s; siła zależy od poziomu. Zwraca true, gdy walczy w tym ticku. */
 	private static boolean fightStep(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
@@ -1496,6 +1738,8 @@ public final class BotManager {
 			s.retal = false;
 			return false;
 		}
+		if (m.getHealth() < 9f && r.hasHome && pearlHome(level, r, s)) return false; // perła endermana: teleport do domu
+		buff(level, r, m);
 		if (m.getHealth() < 6f) { // mało życia: ucieka do domu
 			s.foe = null;
 			s.foeP = null;
@@ -1527,6 +1771,7 @@ public final class BotManager {
 			s.foeP = null;
 			return false;
 		}
+		webTrap(level, r, f);
 		double dx = f.getX() - m.getX(), dz = f.getZ() - m.getZ();
 		double d = Math.sqrt(dx * dx + dz * dz);
 		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
@@ -1610,7 +1855,7 @@ public final class BotManager {
 				return;
 			}
 		}
-		if (s.foe != null || s.foeP != null || RNG.nextInt(20) != 0 || inSpawnArea(m.getX(), m.getZ()) || inPond(m.getX(), m.getZ())) return;
+		if (s.foe != null || s.foeP != null || (RNG.nextInt(warA != null && r.clan != null ? 4 : 20) != 0) || inSpawnArea(m.getX(), m.getZ()) || inPond(m.getX(), m.getZ())) return;
 		String best = null;
 		double bd = 15 * 15;
 		for (Map.Entry<String, State> e : STATES.entrySet()) {
@@ -1618,11 +1863,24 @@ public final class BotManager {
 			if (o == null || o == m || o.isRemoved() || !o.isAlive() || inSpawnArea(o.getX(), o.getZ())) continue;
 			String mc = r.clan;
 			if (mc != null && mc.equals(clanOf(e.getKey()))) continue; // sojusznik
+			boolean war = atWar(mc, clanOf(e.getKey()));
+			if (!war && meetDecision(r.nick, e.getKey(), level.getGameTime()) != 0) continue; // 15% pokój, 5% sojusz - nie atakują
 			double dx = o.getX() - m.getX(), dz = o.getZ() - m.getZ();
 			double d = dx * dx + dz * dz;
+			if (war) d = d * 0.1; // w czasie wojny wróg z gildii wrogiej jest celem priorytetowym i widoczny z daleka
 			if (d < bd) { bd = d; best = e.getKey(); }
 		}
-		if (best == null) return;
+		if (best == null) {
+			if (warA != null && r.clan != null && s.tourPts == null && !BotBuilder.busy(r.nick)) { // wojna: idą pod bazę wroga
+				String enemy = r.clan.equals(warA) ? warB : r.clan.equals(warB) ? warA : null;
+				Rec base = enemy == null ? null : clanBaseRec(enemy, null);
+				if (base != null && base.hasHome && RNG.nextInt(6) == 0) {
+					s.tx = base.hx + RNG.nextInt(7) - 3;
+					s.tz = base.hz + RNG.nextInt(7) - 3;
+				}
+			}
+			return;
+		}
 		s.foe = best;
 		s.fight = 400;
 		State other = STATES.get(best);
@@ -1896,7 +2154,8 @@ public final class BotManager {
 			s.wait = RNG.nextInt(8); // prawie bez postojów: boty nie stoją AFK
 			return;
 		}
-		double speed = 0.10 + 0.015 * r.level; // bloków na tick
+		if (s.sprintT > 0) s.sprintT--; else if (RNG.nextInt(150) == 0) s.sprintT = 40 + RNG.nextInt(60); // czasem biegną sprintem jak gracze SMP
+		double speed = (0.13 + 0.018 * r.level) * (s.sprintT > 0 ? 1.6 : 1.0); // bloków na tick
 		double step = Math.min(speed, dist);
 		double nx = m.getX() + dx / dist * step, nz = m.getZ() + dz / dist * step;
 		nx = Math.max(-HALF + 0.5, Math.min(HALF - 0.5, nx));

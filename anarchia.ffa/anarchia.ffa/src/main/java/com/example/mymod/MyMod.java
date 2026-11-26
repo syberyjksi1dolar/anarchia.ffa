@@ -105,6 +105,7 @@ public class MyMod implements ModInitializer {
 		DynamitItem.initialize();
 		BoskiToporItem.initialize();
 		SkrzynieManager.initialize();
+		CodzienneMisje.initialize();
 		ZbrojeHandler.initialize();
 
 		// Zakładka z księgami zaklęć - rejestrowana przed Eventówkami, więc jest przed nimi.

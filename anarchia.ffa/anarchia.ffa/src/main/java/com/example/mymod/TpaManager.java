@@ -30,7 +30,7 @@ public final class TpaManager {
 
 	public static void initialize() {
 		CommandRegistrationCallback.EVENT.register((d, reg, env) -> {
-			for (String lit : new String[] {"tpa", "rtp"}) {
+			for (String lit : new String[] {"tpa"}) {
 				d.register(Commands.literal(lit).executes(ctx -> {
 				ServerPlayer p = ctx.getSource().getPlayer();
 				if (p == null) {
