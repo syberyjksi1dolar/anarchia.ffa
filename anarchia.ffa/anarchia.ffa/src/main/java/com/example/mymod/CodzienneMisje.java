@@ -209,8 +209,8 @@ public final class CodzienneMisje {
 		box.setItem(SLOTS[0], withTaken(mission(Items.PLAYER_HEAD, "Zabij 5 botów", p.claimed[0], p.kills >= 5,
 				"Postęp: " + Math.min(p.kills, 5) + "/5",
 				"Nagroda: anarchiczny helm i buty (zbroja 2) oraz diamentowy napierśnik i spodnie"), 0, p));
-		box.setItem(SLOTS[1], withTaken(mission(Items.GREEN_BANNER, "Załóż sojusz z 5 osób", p.claimed[1], allies >= 5,
-				"Postęp: " + Math.min(allies, 5) + "/5 sojuszników",
+		box.setItem(SLOTS[1], withTaken(mission(Items.GREEN_BANNER, "Miej gildię z 5 członkami", p.claimed[1], allies >= 5,
+				"Postęp: " + Math.min(allies, 5) + "/5 członków gildii",
 				"Nagroda: 4 zaklęte złote jabłka i 16 złotych jabłek"), 1, p));
 		box.setItem(SLOTS[2], withTaken(mission(Items.VILLAGER_SPAWN_EGG, "Postaw mur 25x25x8 i farmę 9x9", p.claimed[2], false,
 				"Stań przy murze i farmie, potem kliknij: sprawdzę",
@@ -280,7 +280,7 @@ public final class CodzienneMisje {
 		sp.sendSystemMessage(line("✅ Misja wykonana! Nagroda odebrana 🎁", ChatFormatting.GREEN));
 	}
 
-	private static final String[] MISSION_NAMES = { "Zabij 5 botów", "Sojusz z 5 osób", "Mur 25x25x8 i farma 9x9", "Wykop 16 diamentów i 64 żelaza" };
+	private static final String[] MISSION_NAMES = { "Zabij 5 botów", "Gildia z 5 członkami", "Mur 25x25x8 i farma 9x9", "Wykop 16 diamentów i 64 żelaza" };
 
 	private static List<ItemStack> giveRewards(RegistryAccess ra, int i) {
 		List<ItemStack> rewards = new ArrayList<>();

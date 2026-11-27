@@ -211,7 +211,7 @@ final class BotBuilder {
 				}
 			}
 			if (guard) return false;
-			boolean inClan = cw != null && cb != null && cw[2] == 1 && RNG.nextInt(100) < 50; // połowa budowli powstaje w bazie sojuszu
+			boolean inClan = cw != null && cb != null && cw[2] == 1 && RNG.nextInt(100) < 85; // prawie wszystkie budowle członków gildii (domy, farmy...) powstają wewnątrz muru bazy
 			double[] site = home;
 			int[] swi = wi;
 			if (inClan) {
@@ -351,7 +351,7 @@ final class BotBuilder {
 			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
 			return true;
 		}
-		int burst = j.kind != 0 ? Integer.MAX_VALUE : 1 + RNG.nextInt(3); // mury (własny i sojuszu) powstają od razu w całości, reszta normalnie
+		int burst = j.kind != 0 ? Integer.MAX_VALUE : (1 + RNG.nextInt(3)) * (BotManager.clanMembers(nick) >= 2 ? 4 : 1); // członkowie gildii budują 4x szybciej // mury (własny i sojuszu) powstają od razu w całości, reszta normalnie
 		P last = null;
 		int placed = 0, scanned = 0;
 		while (placed < burst && j.idx < j.plan.size() && scanned++ < 20000) {

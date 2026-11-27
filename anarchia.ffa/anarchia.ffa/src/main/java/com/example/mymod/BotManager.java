@@ -77,7 +77,8 @@ public final class BotManager {
 		boolean hasHome;
 		int slot;
 		double hx, hz;
-		String partner; // UUID gracza, z którym bot zawarł sojusz
+		String partner; // UUID gracza, z którym bot zawarł sojusz (gildię)
+		String baseClan; // gildia, która przejęła bazę tego bota (po wygranej wojnie); null = baza należy do jego gildii
 	}
 
 	private static final class Mine {
@@ -355,6 +356,7 @@ public final class BotManager {
 			lv.getServer().getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(killerName != null
 					? "☠ Gracz " + vn + " umarł od gracza " + killerName : "☠ Gracz " + vn + " umarł")
 					.withStyle(net.minecraft.ChatFormatting.RED), false);
+			warDeath(vn, clanOf(vn));
 			int vs = STREAK.getOrDefault(vn, 0);
 			STREAK.remove(vn);
 			if (source.getEntity() instanceof ServerPlayer gp) {
@@ -408,7 +410,7 @@ public final class BotManager {
 		long[] v = SIGHT.get(key);
 		if (v == null || v[1] < now) {
 			double x = RNG.nextDouble();
-			v = new long[] {x < 0.40 ? 0 : x < 0.90 ? 1 : 2, now + 6000};
+			v = new long[] {x < 0.10 ? 0 : x < 0.55 ? 1 : 2, now + 6000}; // 10% pokój, 45% walka, 45% gildia
 			SIGHT.put(key, v);
 		}
 		return (int) v[0];
@@ -461,9 +463,15 @@ public final class BotManager {
 			ROSTER.add(r);
 			added = true;
 		}
-		for (Rec r : ROSTER) { // dawne klany K1.. znikają, sojusze tworzą się teraz w grze
-			if (r.clan != null && r.clan.matches("K\\d+")) {
+		for (Rec r : ROSTER) { // dawne sojusze/klany znikają; gildie D1, D2... tworzą się w grze
+			if (r.clan != null && !r.clan.matches("D\\d+")) {
 				r.clan = null;
+				r.partner = null;
+				r.role = null;
+				r.buddy = null;
+				r.baseClan = null;
+				r.cwDone = false;
+				r.cwP = 0;
 				added = true;
 			}
 		}
@@ -510,6 +518,7 @@ public final class BotManager {
 		crouchTick(server);
 		if (server.getTickCount() % 20 == 7) allianceTags(server);
 		guildWars(server);
+		if (server.getTickCount() % 200 == 3) ensureBanners(server);
 		ServerLevel level = server.overworld();
 		if (level == null) return;
 		if (!cleaned) {
@@ -551,6 +560,7 @@ public final class BotManager {
 			s.lx = s.entity.getX();
 			s.ly = s.entity.getY();
 			s.lz = s.entity.getZ();
+			if (inCobweb(level, s.entity)) s.stunT = Math.max(s.stunT, 2); // w pajęczynie nie chodzi, dopóki jej nie rozwali
 			if (s.stunT > 0) s.stunT--; else moveBot(level, r, s); // unieruchomiony (np. zamrożony eventówką) nie chodzi i nie bije
 			if (t % 10 == 0) {
 				activity(level, r, s);
@@ -700,6 +710,12 @@ public final class BotManager {
 				ie.setItem(st);
 			}
 		}
+		unstick(level, m);
+		if (s.foe == null && s.foeP == null && s.mine == null && s.tourPts == null && s.fleeT <= 0 && s.rtpT <= 0 && !BotBuilder.busy(r.nick)
+				&& Math.floorMod(r.nick.hashCode() + level.getGameTime(), 40) < 10) { // co ok. 2 s, gdy bot nic nie robi
+			upgradeGear(m, r);
+			if (!lootScan(level, r, m)) harvest(level, r, m);
+		}
 		if (BotBuilder.busy(r.nick)) {
 			if (s.act++ % 2 == 0) BotBuilder.step(level, r.nick, m); // w trakcie budowy co 1 s
 			return;
@@ -810,10 +826,16 @@ public final class BotManager {
 			c.addItem(new ItemStack(Items.REDSTONE, l * 2));
 		}
 		if (l >= 3) {
-			c.addItem(new ItemStack(Items.ARROW, l * 6));
+			c.addItem(new ItemStack(Items.ARROW, l * 12));
 			c.addItem(new ItemStack(Items.GOLD_INGOT, l));
 			c.addItem(new ItemStack(Items.LAPIS_LAZULI, l * 2));
-			c.addItem(new ItemStack(Items.SNOWBALL, 8));
+			c.addItem(new ItemStack(Items.SNOWBALL, 32));
+		}
+		if (l >= 3) c.addItem(new ItemStack(Items.COBWEB, l * 6)); // PvP: pajęczyny pod nogi wroga
+		if (l >= 4) c.addItem(new ItemStack(Items.ENDER_PEARL, l >= 8 ? 12 : l >= 6 ? 8 : 4)); // ucieczka do domu
+		if (l >= 5) {
+			c.addItem(new ItemStack(Items.OBSIDIAN, l * 10)); // tarcza z obsydianu w walce
+			c.addItem(new ItemStack(Items.GOLDEN_APPLE, l >= 8 ? 10 : 5)); // leczenie w walce
 		}
 		if (l >= 4) {
 			c.addItem(new ItemStack(Items.SHIELD, 1));
@@ -822,14 +844,13 @@ public final class BotManager {
 		}
 		if (l >= 6) {
 			c.addItem(new ItemStack(Items.DIAMOND, l - 3));
-			c.addItem(new ItemStack(Items.ENDER_PEARL, 2));
-			c.addItem(new ItemStack(Items.TNT, 3));
+			c.addItem(new ItemStack(Items.TNT, l >= 8 ? 12 : 6));
 		}
 		if (l >= 8) {
 			c.addItem(new ItemStack(Items.EMERALD, l - 4));
 			c.addItem(new ItemStack(Items.GOLDEN_CARROT, 8));
 		}
-		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 3));
+		if (l >= 9) c.addItem(new ItemStack(Items.GOLDEN_APPLE, 16));
 		// starter pack: miecz, zbroja i kilof zależne od poziomu (prawdziwe przedmioty)
 		c.addItem(new ItemStack(swordFor(l)));
 		c.addItem(new ItemStack(pickFor(l)));
@@ -842,7 +863,7 @@ public final class BotManager {
 
 	public static final java.util.Set<String> KIT_PATHS = java.util.Set.of("bread", "cooked_beef", "cobblestone", "coal", "apple",
 			"iron_ingot", "raw_copper", "redstone", "arrow", "gold_ingot", "lapis_lazuli", "snowball", "slime_ball", "quartz",
-			"diamond", "tnt", "emerald", "golden_apple", "water_bucket");
+			"diamond", "tnt", "emerald", "golden_apple", "water_bucket", "cobweb", "obsidian", "ender_pearl");
 
 	private static Item swordFor(int l) {
 		return l >= 10 ? Items.NETHERITE_SWORD : l >= 7 ? Items.DIAMOND_SWORD : l >= 4 ? Items.IRON_SWORD : l >= 2 ? Items.STONE_SWORD : Items.WOODEN_SWORD;
@@ -1124,8 +1145,8 @@ public final class BotManager {
 			int mine = 0;
 			String pid = p.getUUID().toString();
 			for (Rec r : ROSTER) if (pid.equals(r.partner)) mine++;
-			if (mine >= 5) {
-				p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Masz już 5 sojuszników-botów.").withStyle(net.minecraft.ChatFormatting.RED));
+			if (mine >= 9) {
+				p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Masz już 9 botów w swojej gildii (maks. 10 członków).").withStyle(net.minecraft.ChatFormatting.RED));
 				continue;
 			}
 			Rec r = recOf(best);
@@ -1149,10 +1170,10 @@ public final class BotManager {
 					bst.fight = 0;
 				}
 				save();
-				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(p.getName().getString() + " zawarł sojusz z botem "
+				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(p.getName().getString() + " dołączył do gildii " + r.clan + " razem z botem "
 						+ best + "!").withStyle(net.minecraft.ChatFormatting.AQUA), false);
 			} else {
-				p.sendSystemMessage(net.minecraft.network.chat.Component.literal(best + " nie chce sojuszu. Spróbuj ponownie za chwilę.").withStyle(net.minecraft.ChatFormatting.GRAY));
+				p.sendSystemMessage(net.minecraft.network.chat.Component.literal(best + " nie chce gildii. Spróbuj ponownie za chwilę.").withStyle(net.minecraft.ChatFormatting.GRAY));
 			}
 		}
 	}
@@ -1174,14 +1195,15 @@ public final class BotManager {
 				if (r == null || m == null || m.isRemoved() || r.clan == null) continue;
 				boolean same = mine != null && mine.equals(r.clan);
 				String sn = m.getScoreboardName();
-				String sig = r.clan + "|" + (same ? "g" : "b");
+				boolean lead = r.nick.equals(leaderOf(r.clan));
+				String sig = r.clan + "|" + (same ? "g" : "b") + (lead ? "|L" : "");
 				if (sig.equals(seen.get(sn))) continue;
 				seen.put(sn, sig);
 				try {
-					net.minecraft.ChatFormatting col = same ? net.minecraft.ChatFormatting.GREEN : net.minecraft.ChatFormatting.AQUA;
-					net.minecraft.world.scores.PlayerTeam team = new net.minecraft.world.scores.PlayerTeam(server.getScoreboard(), "al_" + r.clan + (same ? "_g" : "_b"));
+					net.minecraft.ChatFormatting col = TAG_COLORS[guildColor(r.clan)];
+					net.minecraft.world.scores.PlayerTeam team = new net.minecraft.world.scores.PlayerTeam(server.getScoreboard(), "al_" + r.clan + (same ? "_g" : "_b") + (lead ? "_L" : ""));
 					team.setColor(col);
-					team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[" + r.clan + "] ").withStyle(col));
+					team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[" + r.clan + (lead ? " przywódca" : "") + "] ").withStyle(col));
 					team.getPlayers().add(sn); // pakiet tworzenia drużyny od razu zawiera tego bota
 					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, true));
 				} catch (Exception ex) {
@@ -1197,7 +1219,7 @@ public final class BotManager {
 		if (clan == null) return null;
 		Rec walled = null, first = null;
 		for (Rec x : ROSTER) {
-			if (x == exclude || !clan.equals(x.clan) || x.partner != null || !x.hasHome) continue;
+			if (x == exclude || !clan.equals(x.baseClan != null ? x.baseClan : x.clan) || x.partner != null || !x.hasHome) continue;
 			if (x.cwP > 0) return x;
 			if (walled == null && x.wallDone) walled = x;
 			if (first == null) first = x;
@@ -1326,58 +1348,146 @@ public final class BotManager {
 		return n;
 	}
 
+	/** Nowa gildia dostaje najmniejszy wolny numer: D1, D2, D3... */
 	private static String newClanName() {
-		while (true) {
-			StringBuilder sb = new StringBuilder();
-			for (int i = 0; i < 4; i++) sb.append((char) ('A' + RNG.nextInt(26)));
-			sb.append(1 + RNG.nextInt(9));
-			String n = sb.toString();
+		for (int n = 1; ; n++) {
+			String name = "D" + n;
 			boolean used = false;
-			for (Rec r : ROSTER) if (n.equals(r.clan)) used = true;
-			if (!used) return n;
+			for (Rec r : ROSTER) if (name.equals(r.clan)) used = true;
+			if (!used) return name;
 		}
 	}
 
 	/** Seria zabójstw bota (do nagrody za głowę). */
 	private static final Map<String, Integer> STREAK = new java.util.HashMap<>();
 
-	/** Wojna gildii: co ok. 10 min dwa sojusze (min. 2 członków) wypowiadają sobie wojnę na 5 min - ich członkowie atakują się z dużej odległości. */
-	private static String warA, warB;
-	private static long warEnd = 0, warNext = 0;
+	// ---------- gildie: kolory, wojny nocne, przejmowanie baz ----------
+
+	private static final net.minecraft.world.level.block.Block[] BANNERS = {net.minecraft.world.level.block.Blocks.WHITE_BANNER, net.minecraft.world.level.block.Blocks.ORANGE_BANNER, net.minecraft.world.level.block.Blocks.MAGENTA_BANNER,
+			net.minecraft.world.level.block.Blocks.LIGHT_BLUE_BANNER, net.minecraft.world.level.block.Blocks.YELLOW_BANNER, net.minecraft.world.level.block.Blocks.LIME_BANNER, net.minecraft.world.level.block.Blocks.PINK_BANNER, net.minecraft.world.level.block.Blocks.GRAY_BANNER, net.minecraft.world.level.block.Blocks.LIGHT_GRAY_BANNER,
+			net.minecraft.world.level.block.Blocks.CYAN_BANNER, net.minecraft.world.level.block.Blocks.PURPLE_BANNER, net.minecraft.world.level.block.Blocks.BLUE_BANNER, net.minecraft.world.level.block.Blocks.BROWN_BANNER, net.minecraft.world.level.block.Blocks.GREEN_BANNER, net.minecraft.world.level.block.Blocks.RED_BANNER, net.minecraft.world.level.block.Blocks.BLACK_BANNER};
+	private static final net.minecraft.ChatFormatting[] TAG_COLORS = {net.minecraft.ChatFormatting.WHITE, net.minecraft.ChatFormatting.GOLD,
+			net.minecraft.ChatFormatting.LIGHT_PURPLE, net.minecraft.ChatFormatting.AQUA, net.minecraft.ChatFormatting.YELLOW,
+			net.minecraft.ChatFormatting.GREEN, net.minecraft.ChatFormatting.LIGHT_PURPLE, net.minecraft.ChatFormatting.DARK_GRAY,
+			net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.DARK_AQUA, net.minecraft.ChatFormatting.DARK_PURPLE,
+			net.minecraft.ChatFormatting.BLUE, net.minecraft.ChatFormatting.GOLD, net.minecraft.ChatFormatting.DARK_GREEN,
+			net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.DARK_GRAY};
+
+	/** Numer koloru gildii: D1 biała, D2 pomarańczowa ... D7 różowa (wg kolejności barw wełny/sztandarów). */
+	private static int guildColor(String clan) {
+		try {
+			return (Integer.parseInt(clan.substring(1)) - 1) % 16;
+		} catch (Exception e) {
+			return 0;
+		}
+	}
+
+	private static String warA, warB; // atakujący i broniący
+	private static final java.util.Set<String> deadA = new java.util.HashSet<>(), deadB = new java.util.HashSet<>();
+	private static java.util.List<String> membersA = new java.util.ArrayList<>(), membersB = new java.util.ArrayList<>();
+	private static long warStart = 0, warNext = 0;
 
 	private static boolean atWar(String c1, String c2) {
 		return warA != null && c1 != null && c2 != null && ((c1.equals(warA) && c2.equals(warB)) || (c1.equals(warB) && c2.equals(warA)));
 	}
 
+	/** Przywódca gildii: najstarszy członek na liście botów (bez botów sprzymierzonych z graczem). */
+	private static String leaderOf(String clan) {
+		for (Rec r : ROSTER) if (clan.equals(r.clan) && r.partner == null) return r.nick;
+		for (Rec r : ROSTER) if (clan.equals(r.clan)) return r.nick;
+		return null;
+	}
+
+	private static java.util.List<String> membersOf(String clan) {
+		java.util.List<String> l = new java.util.ArrayList<>();
+		for (Rec r : ROSTER) if (clan.equals(r.clan) && r.partner == null) l.add(r.nick);
+		return l;
+	}
+
+	private static void broadcast(MinecraftServer server, String text, net.minecraft.ChatFormatting f) {
+		server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(text).withStyle(f), false);
+	}
+
+	/** Wojny gildii: w nocy przywódca (najstarszy członek) losowej gildii wybiera cel i atakuje; walczą wszyscy; kończy się, gdy polegną wszyscy z jednej strony. */
 	private static void guildWars(MinecraftServer server) {
 		long t = server.getTickCount();
 		if (warA != null) {
-			if (t >= warEnd) {
-				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("Wojna gildii " + warA + " i " + warB + " zakończona.")
-						.withStyle(net.minecraft.ChatFormatting.GRAY), false);
+			boolean aDead = deadA.containsAll(membersA), bDead = deadB.containsAll(membersB);
+			if (bDead || aDead || t - warStart > 24000) {
+				String win = bDead && !aDead ? warA : aDead && !bDead ? warB : null;
+				String lose = win == null ? null : win.equals(warA) ? warB : warA;
+				if (win != null) {
+					Rec o = clanBaseRec(lose, null);
+					if (o != null) {
+						o.baseClan = win.equals(o.clan) ? null : win;
+						save();
+						broadcast(server, "🏴 Gildia " + win + " pokonała gildię " + lose + " i przejęła jej bazę! Przywódca " + win + " zamienia sztandar na swój.", net.minecraft.ChatFormatting.GOLD);
+					} else {
+						broadcast(server, "🏴 Gildia " + win + " pokonała gildię " + lose + "!", net.minecraft.ChatFormatting.GOLD);
+					}
+				} else {
+					broadcast(server, "Wojna gildii " + warA + " i " + warB + " zakończona remisem.", net.minecraft.ChatFormatting.GRAY);
+				}
 				warA = null;
 				warB = null;
+				deadA.clear();
+				deadB.clear();
 				warNext = t + 12000;
 			}
 			return;
 		}
-		if (t < warNext) return;
-		if (warNext == 0) { warNext = t + 6000; return; }
+		if (t < warNext || t % 400 != 0 || RNG.nextInt(4) != 0) return;
+		ServerLevel ow = server.overworld();
+		long dt = ow.getGameTime() % 24000L;
+		if (dt < 13000L || dt >= 23000L) return; // napady tylko w nocy
 		java.util.List<String> clans = new java.util.ArrayList<>();
-		for (Rec r : ROSTER) if (r.clan != null && !clans.contains(r.clan) && clanSize(r.clan) >= 2) clans.add(r.clan);
-		warNext = t + 12000;
+		for (Rec r : ROSTER) if (r.clan != null && !clans.contains(r.clan) && r.partner == null && membersOf(r.clan).size() >= 2 && clanBaseRec(r.clan, null) != null) clans.add(r.clan);
 		if (clans.size() < 2) return;
 		String a = clans.get(RNG.nextInt(clans.size()));
 		String b;
 		do { b = clans.get(RNG.nextInt(clans.size())); } while (b.equals(a));
 		warA = a;
 		warB = b;
-		warEnd = t + 6000;
-		server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("⚔ Gildia " + a + " wypowiedziała wojnę gildii " + b + "! Wojna potrwa 5 minut.")
-				.withStyle(net.minecraft.ChatFormatting.RED), false);
+		membersA = membersOf(a);
+		membersB = membersOf(b);
+		deadA.clear();
+		deadB.clear();
+		warStart = t;
+		broadcast(server, "⚔ " + a + " zaatakował " + b + "!", net.minecraft.ChatFormatting.RED);
 	}
 
-	/** Pierwsze spotkanie dwóch botów: 0 = walka (80%), 1 = pokój (15%), 2 = sojusz (5%); ważne ok. 5 minut dla pary. */
+	/** Zapamiętuje poległego w wojnie (wołane przy śmierci bota). */
+	private static void warDeath(String nick, String clan) {
+		if (warA == null || clan == null) return;
+		if (clan.equals(warA)) deadA.add(nick);
+		else if (clan.equals(warB)) deadB.add(nick);
+	}
+
+	/** Sztandar gildii w kolorze jej numeru na rogu muru bazy (po jej ukończeniu); po przejęciu bazy zostaje zamieniony na sztandar zdobywcy. */
+	private static void ensureBanners(MinecraftServer server) {
+		ServerLevel level = server.overworld();
+		for (Rec x : ROSTER) {
+			if (!x.hasHome || x.partner != null || !x.cwDone || x.cwP < 5 || x.clan == null) continue;
+			String owner = x.baseClan != null ? x.baseClan : x.clan;
+			int cx = (int) Math.floor(x.hx) + x.cwP / 2, cz = (int) Math.floor(x.hz) + x.cwP / 2;
+			if (!level.hasChunkAt(new BlockPos(cx, 64, cz))) continue;
+			net.minecraft.world.level.block.Block want = BANNERS[guildColor(owner)];
+			for (int y = x.cwY + x.cwH + 3; y >= x.cwY; y--) {
+				BlockPos p = new BlockPos(cx, y, cz);
+				net.minecraft.world.level.block.state.BlockState st = level.getBlockState(p);
+				if (st.getBlock() instanceof net.minecraft.world.level.block.BannerBlock) {
+					if (st.getBlock() != want) level.setBlock(p, want.defaultBlockState(), 3);
+					break;
+				}
+				if (!st.isAir() && level.getBlockState(p.above()).isAir()) {
+					level.setBlock(p.above(), want.defaultBlockState(), 3);
+					break;
+				}
+			}
+		}
+	}
+
+	/** Spotkanie dwóch botów: 0 = walka (45%), 1 = pokój (10%), 2 = gildia (45%); ważne ok. 5 minut dla pary. */
 	private static final Map<String, long[]> MEET = new java.util.HashMap<>();
 
 	private static int meetDecision(String a, String b, long now) {
@@ -1385,7 +1495,7 @@ public final class BotManager {
 		long[] v = MEET.get(key);
 		if (v == null || v[1] < now) {
 			double x = RNG.nextDouble();
-			v = new long[] {x < 0.80 ? 0 : x < 0.95 ? 1 : 2, now + 6000};
+			v = new long[] {x < 0.45 ? 0 : x < 0.55 ? 1 : 2, now + 6000}; // 45% walka, 10% pokój, 45% gildia
 			MEET.put(key, v);
 		}
 		return (int) v[0];
@@ -1402,11 +1512,11 @@ public final class BotManager {
 			if (o == null || o == m || o.isRemoved() || !o.isAlive() || os.ritual > 0 || os.foe != null || os.foeP != null
 					|| os.mine != null || BotBuilder.busy(e.getKey())) continue;
 			if (o.distanceToSqr(m) > 36) continue;
-			if (meetDecision(r.nick, e.getKey(), level.getGameTime()) != 2) continue; // sojusz tylko w 5% spotkań
+			if (meetDecision(r.nick, e.getKey(), level.getGameTime()) != 2) continue; // gildia tylko w 45% spotkań
 			Rec ro = recOf(e.getKey());
 			if (ro == null || (r.clan != null && ro.clan != null)) continue;
 			String c = r.clan != null ? r.clan : ro.clan;
-			if (c != null && clanSize(c) >= 5) continue;
+			if (c != null && clanSize(c) >= 10) continue;
 			s.ritual = 40;
 			os.ritual = 40;
 			s.ritualWith = e.getKey();
@@ -1589,7 +1699,7 @@ public final class BotManager {
 		BotChat.event(SRV, "ally", a.nick);
 		if (SRV != null) {
 			SRV.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("[" + clan + "] " + a.nick + " i " + b.nick
-					+ " zawarli sojusz (klan " + clan + ").").withStyle(net.minecraft.ChatFormatting.AQUA), false);
+					+ " założyli gildię " + clan + ".").withStyle(net.minecraft.ChatFormatting.AQUA), false);
 		}
 	}
 
@@ -1678,6 +1788,191 @@ public final class BotManager {
 		return x >= -14 && x <= 15 && z >= -14 && z <= 15;
 	}
 
+
+	// ---------- pajęczyny, zamurowanie, lepszy sprzęt, żniwa ----------
+
+	private static boolean inCobweb(ServerLevel level, Mannequin m) {
+		BlockPos bp = m.blockPosition();
+		return level.getBlockState(bp).is(net.minecraft.world.level.block.Blocks.COBWEB) || level.getBlockState(bp.above()).is(net.minecraft.world.level.block.Blocks.COBWEB);
+	}
+
+	private static boolean passable(ServerLevel level, BlockPos p) {
+		BlockState st = level.getBlockState(p);
+		return st.isAir() || st.getCollisionShape(level, p).isEmpty();
+	}
+
+	/** Bot rozwala pajęczynę, w której utknął, i bloki, którymi ktoś go zamurował (cztery strony na wysokości stóp i głowy). */
+	private static void unstick(ServerLevel level, Mannequin m) {
+		BlockPos bp = m.blockPosition();
+		if (inCobweb(level, m)) {
+			if (RNG.nextInt(3) == 0) {
+				for (BlockPos q : new BlockPos[] {bp, bp.above()}) if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.COBWEB)) level.destroyBlock(q, false);
+				m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			}
+			return;
+		}
+		int closed = 0;
+		for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			if (!passable(level, bp.relative(d)) && !passable(level, bp.above().relative(d))) closed++;
+		}
+		if (closed == 4 && RNG.nextInt(2) == 0) {
+			net.minecraft.core.Direction d = net.minecraft.core.Direction.Plane.HORIZONTAL.getRandomDirection(level.getRandom());
+			BlockPos q = RNG.nextBoolean() ? bp.relative(d) : bp.above().relative(d);
+			BlockState st = level.getBlockState(q);
+			if (!st.isAir() && st.getDestroySpeed(level, q) >= 0) {
+				level.destroyBlock(q, true);
+				m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+			}
+		}
+	}
+
+	private static int tier(String p) {
+		if (p.contains("anarch")) return 7;
+		if (p.contains("netherite")) return 6;
+		if (p.contains("diamond")) return 5;
+		if (p.contains("iron")) return 4;
+		if (p.contains("chainmail")) return 3;
+		if (p.contains("golden") || p.contains("gold") || p.contains("stone")) return 2;
+		return 1;
+	}
+
+	/** 0 miecz, 1 hełm, 2 napierśnik, 3 spodnie, 4 buty, 5 kilof, -1 inne. */
+	private static int gearKind(String p) {
+		if (p.endsWith("_sword")) return 0;
+		if (p.endsWith("_helmet") || p.endsWith("_helm")) return 1;
+		if (p.endsWith("_chestplate") || p.endsWith("_klata")) return 2;
+		if (p.endsWith("_leggings") || p.endsWith("_spodnie")) return 3;
+		if (p.endsWith("_boots") || p.endsWith("_buty")) return 4;
+		if (p.endsWith("_pickaxe")) return 5;
+		return -1;
+	}
+
+	private static String pathOf(ItemStack st) {
+		return net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath();
+	}
+
+	private static final net.minecraft.world.entity.EquipmentSlot[] GEAR_SLOTS = {net.minecraft.world.entity.EquipmentSlot.MAINHAND,
+			net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS,
+			net.minecraft.world.entity.EquipmentSlot.FEET};
+
+	/** Najlepsza sztuka danego rodzaju, jaką bot ma założoną albo w ekwipunku (0, gdy brak). */
+	private static int bestTier(Mannequin m, SimpleContainer c, int kind) {
+		int best = 0;
+		if (kind < 5) {
+			ItemStack worn = m.getItemBySlot(GEAR_SLOTS[kind]);
+			if (!worn.isEmpty() && gearKind(pathOf(worn)) == kind) best = tier(pathOf(worn));
+		}
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack st = c.getItem(i);
+			if (!st.isEmpty() && gearKind(pathOf(st)) == kind) best = Math.max(best, tier(pathOf(st)));
+		}
+		return best;
+	}
+
+	/** Zakłada lepszy miecz i zbroję z ekwipunku zamiast gorszych (stare wracają do plecaka). */
+	private static void upgradeGear(Mannequin m, Rec r) {
+		SimpleContainer c = inv(r.nick);
+		for (int kind = 0; kind < 5; kind++) {
+			ItemStack worn = m.getItemBySlot(GEAR_SLOTS[kind]);
+			int wt = !worn.isEmpty() && gearKind(pathOf(worn)) == kind ? tier(pathOf(worn)) : 0;
+			int bi = -1, bt = wt;
+			for (int i = 0; i < c.getContainerSize(); i++) {
+				ItemStack st = c.getItem(i);
+				if (!st.isEmpty() && gearKind(pathOf(st)) == kind && tier(pathOf(st)) > bt) {
+					bt = tier(pathOf(st));
+					bi = i;
+				}
+			}
+			if (bi >= 0) {
+				ItemStack take = c.getItem(bi).copyWithCount(1);
+				c.getItem(bi).shrink(1);
+				if (c.getItem(bi).isEmpty()) c.setItem(bi, ItemStack.EMPTY);
+				if (!worn.isEmpty()) c.addItem(worn.copy());
+				m.setItemSlot(GEAR_SLOTS[kind], take);
+				c.setChanged();
+			}
+		}
+	}
+
+	private static boolean wantedItem(Mannequin m, SimpleContainer c, ItemStack st) {
+		String p = pathOf(st);
+		if (p.startsWith("klucz_") || p.equals("golden_apple") || p.equals("enchanted_golden_apple") || p.equals("diamond") || p.equals("netherite_ingot")) return true;
+		int k = gearKind(p);
+		return k >= 0 && tier(p) > bestTier(m, c, k);
+	}
+
+	/** Bot zauważa w pobliżu (12 bloków) lepszy sprzęt, klucze albo cenne rzeczy i podchodzi je podnieść. */
+	private static boolean lootScan(ServerLevel level, Rec r, Mannequin m) {
+		SimpleContainer c = inv(r.nick);
+		ItemEntity best = null;
+		double bd = Double.MAX_VALUE;
+		for (ItemEntity ie : level.getEntitiesOfClass(ItemEntity.class, m.getBoundingBox().inflate(12, 4, 12))) {
+			if (ie.isRemoved() || PLAYER_ITEMS.contains(ie.getUUID()) || r.nick.equals(OWN_DROPS.get(ie.getUUID())) || ie.getItem().isEmpty()) continue;
+			if (!wantedItem(m, c, ie.getItem())) continue;
+			double d = ie.distanceToSqr(m);
+			if (d < bd) { bd = d; best = ie; }
+		}
+		if (best == null) return false;
+		goTo(r.nick, best.getX(), best.getZ());
+		return true;
+	}
+
+	/** Dojrzałe uprawy w pobliżu: bot je zbiera i od razu sadzi od nowa. */
+	private static boolean harvest(ServerLevel level, Rec r, Mannequin m) {
+		BlockPos bp = m.blockPosition();
+		BlockPos best = null;
+		double bd = Double.MAX_VALUE;
+		for (int dx = -6; dx <= 6; dx++) {
+			for (int dz = -6; dz <= 6; dz++) {
+				for (int dy = -2; dy <= 2; dy++) {
+					BlockPos q = bp.offset(dx, dy, dz);
+					BlockState st = level.getBlockState(q);
+					if (st.getBlock() instanceof net.minecraft.world.level.block.CropBlock cb && cb.isMaxAge(st)) {
+						double d = q.distSqr(bp);
+						if (d < bd) { bd = d; best = q; }
+					}
+				}
+			}
+		}
+		if (best == null) return false;
+		if (bd <= 6.25) {
+			BlockState st = level.getBlockState(best);
+			level.destroyBlock(best, true);
+			level.setBlock(best, st.getBlock().defaultBlockState(), 3); // sadzi od nowa
+			m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+		} else {
+			goTo(r.nick, best.getX() + 0.5, best.getZ() + 0.5);
+		}
+		return true;
+	}
+
+	/** W wojnie bot z kamieniem czasem zamurowuje wroga: bloki po czterech stronach na wysokości stóp i głowy (wróg je rozwali). */
+	private static void wallIn(ServerLevel level, Rec r, net.minecraft.world.entity.LivingEntity f) {
+		if (RNG.nextInt(120) != 0) return;
+		SimpleContainer c = inv(r.nick);
+		int have = 0;
+		for (int i = 0; i < c.getContainerSize(); i++) if (c.getItem(i).is(Items.COBBLESTONE)) have += c.getItem(i).getCount();
+		if (have < 16) return;
+		BlockPos fp = f.blockPosition();
+		int used = 0;
+		for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			for (BlockPos q : new BlockPos[] {fp.relative(d), fp.above().relative(d)}) {
+				if (level.getBlockState(q).isAir()) {
+					level.setBlock(q, net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState(), 3);
+					used++;
+				}
+			}
+		}
+		for (int i = 0; i < c.getContainerSize() && used > 0; i++) {
+			ItemStack st = c.getItem(i);
+			if (st.is(Items.COBBLESTONE)) {
+				int t = Math.min(used, st.getCount());
+				st.shrink(t);
+				used -= t;
+			}
+		}
+	}
+
 	private static final Map<String, Long> BUFF = new HashMap<>();
 
 	/** Przed walką wysokopoziomowy bot "pije miksturę": siła i szybkość na 30 s (raz na minutę). */
@@ -1714,9 +2009,29 @@ public final class BotManager {
 		return false;
 	}
 
+	/** Poniżej 50% życia bot z obsydianem stawia dwa bloki między sobą a wrogiem (tarcza), czasem i tylko gdy jest tam wolne miejsce. */
+	private static void obsidianShield(ServerLevel level, Rec r, Mannequin m, net.minecraft.world.entity.LivingEntity f) {
+		if (m.getHealth() > m.getMaxHealth() * 0.5f || RNG.nextInt(40) != 0) return;
+		SimpleContainer c = inv(r.nick);
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack st = c.getItem(i);
+			if (!st.is(Items.OBSIDIAN) || st.getCount() < 2) continue;
+			double dx = f.getX() - m.getX(), dz = f.getZ() - m.getZ();
+			double len = Math.sqrt(dx * dx + dz * dz);
+			if (len < 1.5) return;
+			BlockPos p = BlockPos.containing(m.getX() + dx / len * 1.2, m.getY(), m.getZ() + dz / len * 1.2);
+			if (level.getBlockState(p).isAir() && level.getBlockState(p.above()).isAir()) {
+				level.setBlock(p, net.minecraft.world.level.block.Blocks.OBSIDIAN.defaultBlockState(), 3);
+				level.setBlock(p.above(), net.minecraft.world.level.block.Blocks.OBSIDIAN.defaultBlockState(), 3);
+				st.shrink(2);
+			}
+			return;
+		}
+	}
+
 	/** Czasem bot rzuca pod nogi wroga pajęczynę (jeśli ją ma), żeby go spowolnić. */
-	private static void webTrap(ServerLevel level, Rec r, net.minecraft.world.entity.LivingEntity f) {
-		if (RNG.nextInt(60) != 0) return;
+	private static void webTrap(ServerLevel level, Rec r, net.minecraft.world.entity.LivingEntity f, boolean war) {
+		if (RNG.nextInt(war ? 8 : 60) != 0) return;
 		SimpleContainer c = inv(r.nick);
 		for (int i = 0; i < c.getContainerSize(); i++) {
 			ItemStack st = c.getItem(i);
@@ -1771,7 +2086,10 @@ public final class BotManager {
 			s.foeP = null;
 			return false;
 		}
-		webTrap(level, r, f);
+		boolean war = s.foe != null && atWar(r.clan, clanOf(s.foe));
+		webTrap(level, r, f, war);
+		if (war) wallIn(level, r, f);
+		obsidianShield(level, r, m, f);
 		double dx = f.getX() - m.getX(), dz = f.getZ() - m.getZ();
 		double d = Math.sqrt(dx * dx + dz * dz);
 		float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
@@ -1864,7 +2182,7 @@ public final class BotManager {
 			String mc = r.clan;
 			if (mc != null && mc.equals(clanOf(e.getKey()))) continue; // sojusznik
 			boolean war = atWar(mc, clanOf(e.getKey()));
-			if (!war && meetDecision(r.nick, e.getKey(), level.getGameTime()) != 0) continue; // 15% pokój, 5% sojusz - nie atakują
+			if (!war && meetDecision(r.nick, e.getKey(), level.getGameTime()) != 0) continue; // pokój albo gildia - nie atakują
 			double dx = o.getX() - m.getX(), dz = o.getZ() - m.getZ();
 			double d = dx * dx + dz * dz;
 			if (war) d = d * 0.1; // w czasie wojny wróg z gildii wrogiej jest celem priorytetowym i widoczny z daleka

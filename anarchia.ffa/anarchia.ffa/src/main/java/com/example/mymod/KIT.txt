@@ -1,0 +1,31 @@
+ZAWARTOŚĆ KITU BOTÓW (poziomy 1-10). Źródło: BotManager.fillKit()
+
+POZIOM 1:
+  chleb 13, wołowina 6, kamień 496, węgiel 12, kłody dębu 72, deski dębu 168, jabłko 4, pochodnie 36, patyki 8, nasiona pszenicy 52, wiadro wody 1, wiadro 1, miecz drewniany, kilof drewniany, zbroja skórzana (hełm, napierśnik, spodnie, buty)
+
+POZIOM 2:
+  chleb 16, wołowina 8, kamień 512, węgiel 16, kłody dębu 80, deski dębu 176, jabłko 5, pochodnie 40, patyki 8, nasiona pszenicy 64, wiadro wody 1, wiadro 1, sztabki żelaza 6, surowa miedź 4, redstone 4, miecz kamienny, kilof kamienny, zbroja skórzana (hełm, napierśnik, spodnie, buty)
+
+POZIOM 3:
+  chleb 19, wołowina 10, kamień 528, węgiel 20, kłody dębu 88, deski dębu 184, jabłko 6, pochodnie 44, patyki 8, nasiona pszenicy 76, wiadro wody 1, wiadro 1, sztabki żelaza 9, surowa miedź 6, redstone 6, strzały 36, sztabki złota 3, lapis 6, śnieżki 32, pajęczyny 18, miecz kamienny, kilof kamienny, zbroja skórzana (hełm, napierśnik, spodnie, buty)
+
+POZIOM 4:
+  chleb 22, wołowina 12, kamień 544, węgiel 24, kłody dębu 96, deski dębu 192, jabłko 7, pochodnie 48, patyki 8, nasiona pszenicy 88, wiadro wody 1, wiadro 1, sztabki żelaza 12, surowa miedź 8, redstone 8, strzały 48, sztabki złota 4, lapis 8, śnieżki 32, pajęczyny 24, perły endermana 4, tarcza 1, szlam 4, kwarc 8, miecz żelazny, kilof żelazny, zbroja żelazna (hełm, napierśnik, spodnie, buty)
+
+POZIOM 5:
+  chleb 25, wołowina 14, kamień 560, węgiel 28, kłody dębu 104, deski dębu 200, jabłko 8, pochodnie 52, patyki 8, nasiona pszenicy 100, wiadro wody 1, wiadro 1, sztabki żelaza 15, surowa miedź 10, redstone 10, strzały 60, sztabki złota 5, lapis 10, śnieżki 32, pajęczyny 30, perły endermana 4, tarcza 1, szlam 5, kwarc 10, obsydian 50, złote jabłka 5, miecz żelazny, kilof żelazny, zbroja żelazna (hełm, napierśnik, spodnie, buty)
+
+POZIOM 6:
+  chleb 28, wołowina 16, kamień 576, węgiel 32, kłody dębu 112, deski dębu 208, jabłko 9, pochodnie 56, patyki 8, nasiona pszenicy 112, wiadro wody 1, wiadro 1, sztabki żelaza 18, surowa miedź 12, redstone 12, strzały 72, sztabki złota 6, lapis 12, śnieżki 32, pajęczyny 36, perły endermana 8, tarcza 1, szlam 6, kwarc 12, obsydian 60, złote jabłka 5, diamenty 3, TNT 6, miecz żelazny, kilof żelazny, zbroja żelazna (hełm, napierśnik, spodnie, buty)
+
+POZIOM 7:
+  chleb 31, wołowina 18, kamień 592, węgiel 36, kłody dębu 120, deski dębu 216, jabłko 10, pochodnie 60, patyki 8, nasiona pszenicy 124, wiadro wody 1, wiadro 1, sztabki żelaza 21, surowa miedź 14, redstone 14, strzały 84, sztabki złota 7, lapis 14, śnieżki 32, pajęczyny 42, perły endermana 8, tarcza 1, szlam 7, kwarc 14, obsydian 70, złote jabłka 5, diamenty 4, TNT 6, miecz diamentowy, kilof diamentowy, zbroja diamentowa (hełm, napierśnik, spodnie, buty)
+
+POZIOM 8:
+  chleb 34, wołowina 20, kamień 608, węgiel 40, kłody dębu 128, deski dębu 224, jabłko 11, pochodnie 64, patyki 8, nasiona pszenicy 136, wiadro wody 1, wiadro 1, sztabki żelaza 24, surowa miedź 16, redstone 16, strzały 96, sztabki złota 8, lapis 16, śnieżki 32, pajęczyny 48, perły endermana 12, tarcza 1, szlam 8, kwarc 16, obsydian 80, złote jabłka 10, diamenty 5, TNT 12, szmaragdy 4, złote marchewki 8, miecz diamentowy, kilof diamentowy, zbroja diamentowa (hełm, napierśnik, spodnie, buty)
+
+POZIOM 9:
+  chleb 37, wołowina 22, kamień 624, węgiel 44, kłody dębu 136, deski dębu 232, jabłko 12, pochodnie 68, patyki 8, nasiona pszenicy 148, wiadro wody 1, wiadro 1, sztabki żelaza 27, surowa miedź 18, redstone 18, strzały 108, sztabki złota 9, lapis 18, śnieżki 32, pajęczyny 54, perły endermana 12, tarcza 1, szlam 9, kwarc 18, obsydian 90, złote jabłka 10, diamenty 6, TNT 12, szmaragdy 5, złote marchewki 8, złote jabłka +16, miecz diamentowy, kilof diamentowy, zbroja diamentowa (hełm, napierśnik, spodnie, buty)
+
+POZIOM 10:
+  chleb 40, wołowina 24, kamień 640, węgiel 48, kłody dębu 144, deski dębu 240, jabłko 13, pochodnie 72, patyki 8, nasiona pszenicy 160, wiadro wody 1, wiadro 1, sztabki żelaza 30, surowa miedź 20, redstone 20, strzały 120, sztabki złota 10, lapis 20, śnieżki 32, pajęczyny 60, perły endermana 12, tarcza 1, szlam 10, kwarc 20, obsydian 100, złote jabłka 10, diamenty 7, TNT 12, szmaragdy 6, złote marchewki 8, złote jabłka +16, miecz netherytowy, kilof netherytowy, zbroja netherytowa (hełm, napierśnik, spodnie, buty)
