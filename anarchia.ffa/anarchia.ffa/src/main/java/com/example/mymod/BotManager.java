@@ -78,6 +78,7 @@ public final class BotManager {
 		int slot;
 		double hx, hz;
 		String partner; // UUID gracza, z którym bot zawarł sojusz (gildię)
+		String leaderP; // UUID gracza, który założył gildię i jest jej przywódcą (null = przywódcą jest bot)
 		String baseClan; // gildia, która przejęła bazę tego bota (po wygranej wojnie); null = baza należy do jego gildii
 	}
 
@@ -518,6 +519,7 @@ public final class BotManager {
 		crouchTick(server);
 		if (server.getTickCount() % 20 == 7) allianceTags(server);
 		guildWars(server);
+		if (server.getTickCount() % 200 == 11) leaderTags(server);
 		if (server.getTickCount() % 200 == 3) ensureBanners(server);
 		ServerLevel level = server.overworld();
 		if (level == null) return;
@@ -1114,7 +1116,7 @@ public final class BotManager {
 		m.setPos(k.x, k.y, k.z);
 	}
 
-	/** Gracz kuca 5 razy szybko obok bota: 25% szans na sojusz (bot chodzi za graczem i go broni). */
+	/** Gracz kuca 3 razy szybko obok bota: bot zakłada z nim gildię (gracz zostaje jej przywódcą). */
 	private static void crouchTick(MinecraftServer server) {
 		long t = server.getTickCount();
 		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
@@ -1125,7 +1127,7 @@ public final class BotManager {
 			if (!(down && !was) || t < c[3]) continue;
 			if (c[0] == 0 || t - c[1] > 60) { c[0] = 0; c[1] = (int) t; }
 			c[0]++;
-			if (c[0] < 5) continue;
+			if (c[0] < 3) continue;
 			c[0] = 0;
 			String best = null;
 			double bd = 5 * 5;
@@ -1152,13 +1154,14 @@ public final class BotManager {
 			Rec r = recOf(best);
 			State inviter = STATES.get(best);
 			boolean invited = inviter != null && p.getUUID().equals(inviter.proposeTo);
-			if (invited || RNG.nextDouble() < 0.25) { // zaproszenie od bota = pewny sojusz
+			if (true) { // 3 kucnięcia obok bota = gildia
 				if (inviter != null) {
 					inviter.proposeTo = null;
 					if (inviter.entity != null) inviter.entity.setShiftKeyDown(false);
 				}
 				String pc = playerClan(pid);
 				r.clan = pc != null ? pc : newClanName();
+				if (pc == null) r.leaderP = pid; // założyciel jest przywódcą
 				r.partner = pid;
 				r.role = null;
 				r.buddy = null;
@@ -1170,8 +1173,8 @@ public final class BotManager {
 					bst.fight = 0;
 				}
 				save();
-				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(p.getName().getString() + " dołączył do gildii " + r.clan + " razem z botem "
-						+ best + "!").withStyle(net.minecraft.ChatFormatting.AQUA), false);
+				server.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(p.getName().getString() + (pc == null ? " założył gildię " + r.clan + " i jest jej przywódcą (z botem " : " dołączył do gildii " + r.clan + " razem z botem ")
+						+ best + (pc == null ? ")!" : "!")).withStyle(net.minecraft.ChatFormatting.AQUA), false);
 			} else {
 				p.sendSystemMessage(net.minecraft.network.chat.Component.literal(best + " nie chce gildii. Spróbuj ponownie za chwilę.").withStyle(net.minecraft.ChatFormatting.GRAY));
 			}
@@ -1393,6 +1396,7 @@ public final class BotManager {
 
 	/** Przywódca gildii: najstarszy członek na liście botów (bez botów sprzymierzonych z graczem). */
 	private static String leaderOf(String clan) {
+		for (Rec r : ROSTER) if (clan.equals(r.clan) && r.leaderP != null) return null; // przywódcą jest gracz
 		for (Rec r : ROSTER) if (clan.equals(r.clan) && r.partner == null) return r.nick;
 		for (Rec r : ROSTER) if (clan.equals(r.clan)) return r.nick;
 		return null;
@@ -1456,6 +1460,28 @@ public final class BotManager {
 		broadcast(server, "⚔ " + a + " zaatakował " + b + "!", net.minecraft.ChatFormatting.RED);
 	}
 
+	/** Gracz-przywódca gildii ma przy nicku [D6 przywódca] w kolorze gildii (drużyna na tablicy wyników). */
+	private static void leaderTags(MinecraftServer server) {
+		net.minecraft.server.ServerScoreboard sb = server.getScoreboard();
+		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+			String pid = p.getUUID().toString();
+			String clan = null;
+			for (Rec r : ROSTER) if (pid.equals(r.leaderP) && r.clan != null) clan = r.clan;
+			if (clan == null) continue;
+			try {
+				String tn = "gld_" + clan;
+				net.minecraft.world.scores.PlayerTeam team = sb.getPlayerTeam(tn);
+				if (team == null) team = sb.addPlayerTeam(tn);
+				net.minecraft.ChatFormatting col = TAG_COLORS[guildColor(clan)];
+				team.setColor(col);
+				team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[" + clan + " przywódca] ").withStyle(col));
+				if (sb.getPlayersTeam(p.getScoreboardName()) != team) sb.addPlayerToTeam(p.getScoreboardName(), team);
+			} catch (Exception ex) {
+				MyMod.LOGGER.warn("Znacznik przywódcy: {}", ex.toString());
+			}
+		}
+	}
+
 	/** Zapamiętuje poległego w wojnie (wołane przy śmierci bota). */
 	private static void warDeath(String nick, String clan) {
 		if (warA == null || clan == null) return;
@@ -1501,7 +1527,7 @@ public final class BotManager {
 		return (int) v[0];
 	}
 
-	/** Bot bez sojuszu, który stoi blisko innego wolnego bota, zaczyna rytuał: 5 szybkich kucnięć w jego stronę. */
+	/** Bot bez sojuszu, który stoi blisko innego wolnego bota, zaczyna rytuał: 3 szybkie kucnięcia w jego stronę. */
 	private static void maybeAlly(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
 		if (s.ritual > 0 || s.foe != null || s.foeP != null || s.mine != null || BotBuilder.busy(r.nick) || RNG.nextInt(40) != 0
@@ -1517,8 +1543,8 @@ public final class BotManager {
 			if (ro == null || (r.clan != null && ro.clan != null)) continue;
 			String c = r.clan != null ? r.clan : ro.clan;
 			if (c != null && clanSize(c) >= 10) continue;
-			s.ritual = 40;
-			os.ritual = 40;
+			s.ritual = 24; // 3 kucnięcia
+			os.ritual = 24;
 			s.ritualWith = e.getKey();
 			os.ritualWith = r.nick;
 			s.lead = true;
@@ -2236,7 +2262,7 @@ public final class BotManager {
 			}
 			return true;
 		}
-		if (s.propToggles < 10) { // 5 szybkich kucnięć
+		if (s.propToggles < 6) { // 3 szybkie kucnięcia
 			if (s.propTick++ % 4 == 0) {
 				m.setShiftKeyDown(!m.isShiftKeyDown());
 				s.propToggles++;
