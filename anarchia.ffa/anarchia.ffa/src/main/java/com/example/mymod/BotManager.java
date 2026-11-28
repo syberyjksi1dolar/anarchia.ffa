@@ -48,8 +48,11 @@ public final class BotManager {
 	private BotManager() {}
 
 	public static final String TAG = "anarchia_bot";
-	public static final int COUNT = 300;
-	public static final int HALF = 750;               // obszar 1500 x 1500 wokół 0,0
+	public static final int COUNT = 600; // pula botów w pliku; ile ich naprawdę gra naraz, reguluje activeLimit (automatycznie, zależnie od obciążenia serwera)
+	private static final int START_ACTIVE = 300, MIN_ACTIVE = 100;
+	private static int activeLimit = START_ACTIVE;
+	public static final int HALF = 750;               // obszar 1500 x 1500 (graczy: /rtp)
+	public static final int HALF_BOT = 450;           // granica TYLKO dla botów: 900 x 900
 	public static final double SPAWN_X = 0.5, SPAWN_Y = 100, SPAWN_Z = 0.5;
 	private static final String[] SKINS = {"steve", "alex", "ari", "efe", "kai", "makena", "noor", "sunny", "zuri"};
 	private static final String[] PREFIX = {"Desik", "Kuba", "Mati", "Szymon", "Wojtek", "Ola", "Kacper", "Bartek", "Jasiek", "Marek",
@@ -103,13 +106,14 @@ public final class BotManager {
 		boolean first = true;
 		int act;
 		String foe;
-		int jump, sprintT, ritual, fleeT, rtpT;
+		int jump, sprintT, ritual, fleeT, rtpT, afkT;
 		boolean rtpBack;
 		boolean strafe;
 		int stunT;
 		java.util.UUID proposeTo;
 		int propT, propToggles, propTick;
 		long actT;
+		int webT; // ticki rozwalania pajęczyny
 		double[] tourPts; // oprowadzanie nowego członka sojuszu: punkty x,z
 		int tourIdx, tourDwell, tourT;
 		String escort; // sojusznik, który oprowadza nowego członka
@@ -344,6 +348,7 @@ public final class BotManager {
 					if (e.getValue().entity == km) {
 						Rec kr = recOf(e.getKey());
 						if (kr != null) kr.kills++;
+						if (entity instanceof ServerPlayer dp && entity.level().getServer() != null) BotChat.killedPlayer(entity.level().getServer(), e.getKey(), dp.getGameProfile().name());
 					}
 				}
 			}
@@ -416,7 +421,7 @@ public final class BotManager {
 		long[] v = SIGHT.get(key);
 		if (v == null || v[1] < now) {
 			double x = RNG.nextDouble();
-			v = new long[] {x < 0.10 ? 0 : x < 0.55 ? 1 : 2, now + 6000}; // 10% pokój, 45% walka, 45% gildia
+			v = new long[] {x < 0.10 ? 0 : x < 0.42 ? 1 : 2, now + 6000}; // 10% pokój, 32% walka, 58% gildia
 			SIGHT.put(key, v);
 		}
 		return (int) v[0];
@@ -563,6 +568,15 @@ public final class BotManager {
 				n.respawnIn = 20 + order * 3 + RNG.nextInt(3); // boty pojawiają się stopniowo, po jednym na ok. 3 ticki
 				return n;
 			});
+			if (idx >= activeLimit) { // ponad limit obciążenia: bot czeka poza światem
+				if (s.entity != null && !s.entity.isRemoved()) s.entity.discard();
+				s.entity = null;
+				s.foe = null;
+				s.foeP = null;
+				s.mine = null;
+				s.respawnIn = 20 + RNG.nextInt(40);
+				continue;
+			}
 			boolean alive = s.entity != null && !s.entity.isRemoved() && s.entity.isAlive();
 			if (!alive) {
 				if (s.entity != null && !s.entity.isRemoved()) {
@@ -582,7 +596,7 @@ public final class BotManager {
 			s.lx = s.entity.getX();
 			s.ly = s.entity.getY();
 			s.lz = s.entity.getZ();
-			if (inCobweb(level, s.entity)) s.stunT = Math.max(s.stunT, 2); // w pajęczynie nie chodzi, dopóki jej nie rozwali
+			webStuck(level, s); // w pajęczynie nie chodzi, dopóki jej nie rozwali (mieczem, jak gracz)
 			if (s.stunT > 0) s.stunT--; else moveBot(level, r, s); // unieruchomiony (np. zamrożony eventówką) nie chodzi i nie bije
 			if ((t + Math.floorMod(r.nick.hashCode(), 10)) % 10 == 0 || t - s.actT >= 20) { // co 10 ticków, ale każdy bot w innym ticku (bez skoków lagów)
 				s.actT = t;
@@ -593,8 +607,14 @@ public final class BotManager {
 			}
 		}
 		profNs += System.nanoTime() - t0;
-		if (++profTicks >= 600) { // co 30 s: ile średnio kosztują boty
-			MyMod.LOGGER.info("Boty: średnio {} ms/tick, przerwano limitem czasu {} razy w 30 s, ostatnio obsłużono {}/{}", String.format("%.1f", profNs / 1e6 / profTicks), skipped, done, total);
+		if (++profTicks >= 600) { // co 30 s: ile średnio kosztują boty i czy można dodać więcej
+			double avgMs = profNs / 1e6 / profTicks;
+			double mspt = server.getAverageTickTimeNanos() / 1e6;
+			int before = activeLimit;
+			if (skipped > 0 || avgMs > 15 || mspt > 42) activeLimit = Math.max(MIN_ACTIVE, activeLimit - 20); // za ciężko: mniej botów
+			else if (avgMs < 8 && mspt < 30) activeLimit = Math.min(ROSTER.size(), activeLimit + 20); // zapas mocy: więcej botów
+			MyMod.LOGGER.info("Boty: średnio {} ms/tick, serwer {} ms/tick, limit czasu przerwał {} razy w 30 s, obsłużono {}/{}, aktywnych botów: {} (było {})",
+					String.format("%.1f", avgMs), String.format("%.1f", mspt), skipped, done, total, activeLimit, before);
 			profNs = 0;
 			profTicks = 0;
 			skipped = 0;
@@ -718,8 +738,45 @@ public final class BotManager {
 	}
 
 	/** Co 0,5 s: podnoszenie przedmiotów z ziemi i zbieranie drewna/rud z najbliższego otoczenia. */
+	/** Bot poza granicą 900x900 (np. stary zapis, teleport do gracza, perła) jest od razu cofany do środka. */
+	private static void confine(Mannequin m, State s) {
+		double lim = HALF_BOT - 0.5;
+		double x = m.getX(), z = m.getZ();
+		if (Math.abs(x) <= lim && Math.abs(z) <= lim) return;
+		double nx = Math.max(-lim, Math.min(lim, x)), nz = Math.max(-lim, Math.min(lim, z));
+		m.setPos(nx, m.getY(), nz);
+		s.tx = Math.max(-lim, Math.min(lim, s.tx));
+		s.tz = Math.max(-lim, Math.min(lim, s.tz));
+	}
+
 	private static void activity(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
+		if (s.afkT > 0) { // chwilowe AFK jak u gracza: stoi, rozgląda się
+			s.afkT--;
+			if (s.foe == null && s.foeP == null && s.fleeT <= 0) {
+				if (RNG.nextInt(8) == 0) m.setYHeadRot(RNG.nextFloat() * 360f - 180f);
+				s.tx = m.getX();
+				s.tz = m.getZ();
+				return;
+			}
+			s.afkT = 0;
+		}
+		if (s.foe == null && s.foeP == null && s.mine == null && s.fleeT <= 0 && s.ritual <= 0 && s.tourPts == null && s.rtpT <= 0 && !BotBuilder.busy(r.nick)
+				&& r.clan == null && RNG.nextInt(900) == 0) s.afkT = 20 + RNG.nextInt(101); // 10 s - 1 min bez ruchu (tylko boty bez gildii)
+		confine(m, s); // granica 900x900 tylko dla botów: żadna teleportacja nie wyniesie bota poza nią
+		if (s.foe == null && s.foeP == null && !BotBuilder.busy(r.nick) && s.tourPts == null && RNG.nextInt(3) == 0) { // patrzą na gracza w pobliżu jak żywi gracze
+			ServerPlayer near = level.getNearestPlayer(m, 7.0);
+			if (near != null && !near.isSpectator()) {
+				float hy = (float) Math.toDegrees(Math.atan2(-(near.getX() - m.getX()), near.getZ() - m.getZ()));
+				m.setYHeadRot(hy);
+				if (RNG.nextInt(25) == 0) m.swing(net.minecraft.world.InteractionHand.MAIN_HAND); // machnięcie ręką
+			}
+		}
+		if (s.foe == null && s.foeP == null && s.mine == null && !BotBuilder.busy(r.nick) && s.tourPts == null && RNG.nextInt(60) == 0) { // czasem rozglądają się dookoła
+			float look = RNG.nextFloat() * 360f - 180f;
+			m.setYHeadRot(look);
+			m.setXRot(RNG.nextFloat() * 30f - 10f);
+		}
 		BotEvents.tick(level, r.nick, m, foeOf(level, s));
 		SkrzynieManager.botTick(level, r.nick, inv(r.nick));
 		CodzienneMisje.botTick(level, r.nick, inv(r.nick), m);
@@ -745,13 +802,14 @@ public final class BotManager {
 				&& Math.floorMod(r.nick.hashCode() + level.getGameTime(), 40) < 10) { // co ok. 2 s, gdy bot nic nie robi
 			upgradeGear(m, r);
 			if (roleAct(level, r, s, m)) { /* zajęty zadaniem roli */ }
+			else if (seekGuild(level, r, s, m)) { /* idzie szukać gildii */ }
 			else if (!lootScan(level, r, m)) harvest(level, r, m);
 		}
 		if (BotBuilder.busy(r.nick)) {
 			if (s.act++ % 2 == 0) BotBuilder.step(level, r.nick, m); // w trakcie budowy co 1 s
 			return;
 		}
-		if (++s.act % 2 != 0) return;
+		if (++s.act % 2 != 0 && RNG.nextInt(100) >= 30) return; // budowa (mury itd.) ok. 30% częściej
 		if (BotBuilder.step(level, r.nick, m)) return;
 		int bx = (int) Math.floor(m.getX()), bz = (int) Math.floor(m.getZ());
 		if (Math.abs(bx) < 30 && Math.abs(bz) < 40) return; // okolice spawnu, rynku i stawu zostają nietknięte
@@ -1011,10 +1069,10 @@ public final class BotManager {
 	private static double[] freeNear(ServerLevel level, String self, double hx, double hz) {
 		if (!botWithin(self, hx, hz, 5)) return null;
 		for (int t = 0; t < 40; t++) {
-			double ang = RNG.nextDouble() * Math.PI * 2, rad = 5 + RNG.nextDouble() * 4; // 5-9 bloków od zajętego miejsca
+			double ang = RNG.nextDouble() * Math.PI * 2, rad = RNG.nextDouble() * 6; // 0-6 bloków od innego bota
 			double x = hx + Math.cos(ang) * rad, z = hz + Math.sin(ang) * rad;
 			if (!level.hasChunkAt(new BlockPos((int) Math.floor(x), 64, (int) Math.floor(z))) || isWaterAt(level, x, z)) continue;
-			if (!botWithin(self, x, z, 5)) return new double[] {x, z};
+			return new double[] {x, z}; // może stać tuż obok bota (0-6 bloków)
 		}
 		return null;
 	}
@@ -1261,14 +1319,15 @@ public final class BotManager {
 				boolean lead = r.nick.equals(leaderOf(r.clan));
 				String sig = r.clan + "|" + (same ? "g" : "b") + (lead ? "|L" : "");
 				if (sig.equals(seen.get(sn))) continue;
+				boolean existedBefore = seen.containsKey(sn);
 				seen.put(sn, sig);
 				try {
 					net.minecraft.ChatFormatting col = TAG_COLORS[guildColor(r.clan)];
-					net.minecraft.world.scores.PlayerTeam team = new net.minecraft.world.scores.PlayerTeam(server.getScoreboard(), "al_" + r.clan + (same ? "_g" : "_b") + (lead ? "_L" : ""));
+					net.minecraft.world.scores.PlayerTeam team = new net.minecraft.world.scores.PlayerTeam(server.getScoreboard(), "g" + Integer.toHexString(sn.hashCode()));
 					team.setColor(col);
 					team.setPlayerPrefix(net.minecraft.network.chat.Component.literal("[" + r.clan + (lead ? " przywódca" : "") + "] ").withStyle(col));
 					team.getPlayers().add(sn); // pakiet tworzenia drużyny od razu zawiera tego bota
-					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, true));
+					viewer.connection.send(net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(team, !existedBefore));
 				} catch (Exception ex) {
 					MyMod.LOGGER.warn("Znacznik sojuszu: {}", ex.toString());
 				}
@@ -1591,12 +1650,29 @@ public final class BotManager {
 	/** Spotkanie dwóch botów: 0 = walka (45%), 1 = pokój (10%), 2 = gildia (45%); ważne ok. 5 minut dla pary. */
 	private static final Map<String, long[]> MEET = new java.util.HashMap<>();
 
+	/** Charakter bota z nicka (stały): 0 agresywny, 1 spokojny, 2 gadatliwy, 3 i 4 zwyczajni. */
+	public static int trait(String nick) {
+		return Math.floorMod(nick.hashCode() * 31 + 7, 5);
+	}
+
+	private static double traitBias(String nick) {
+		int t = trait(nick);
+		return t == 0 ? 0.10 : t == 1 ? -0.10 : 0.0;
+	}
+
 	private static int meetDecision(String a, String b, long now) {
 		String key = a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a;
 		long[] v = MEET.get(key);
 		if (v == null || v[1] < now) {
 			double x = RNG.nextDouble();
-			v = new long[] {x < 0.45 ? 0 : x < 0.55 ? 1 : 2, now + 6000}; // 45% walka, 10% pokój, 45% gildia
+			Rec ra = recOf(a), rb = recOf(b);
+			double sh = Math.max(-0.30, traitBias(a) + traitBias(b)); // charakter: agresywny +10% walki, spokojny -10%
+			boolean lonely = (ra != null && ra.clan == null) || (rb != null && rb.clan == null);
+			if (lonely) { // bot bez gildii: 80% gildia, 15% walka, 5% pokój (żeby każdy bot miał gildię)
+				v = new long[] {x < 0.08 + sh ? 0 : x < 0.10 + sh ? 1 : 2, now + 6000}; // ok. 90% gildia
+			} else {
+				v = new long[] {x < 0.32 + sh ? 0 : x < 0.42 + sh ? 1 : 2, now + 6000}; // 32% walka, 10% pokój, 58% gildia
+			}
 			MEET.put(key, v);
 		}
 		return (int) v[0];
@@ -1605,15 +1681,15 @@ public final class BotManager {
 	/** Bot bez sojuszu, który stoi blisko innego wolnego bota, zaczyna rytuał: 5 szybkich kucnięć w jego stronę. */
 	private static void maybeAlly(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
-		if (s.ritual > 0 || s.foe != null || s.foeP != null || s.mine != null || BotBuilder.busy(r.nick) || RNG.nextInt(40) != 0
+		if (s.ritual > 0 || s.foe != null || s.foeP != null || s.mine != null || BotBuilder.busy(r.nick) || RNG.nextInt(r.clan == null ? 3 : 28) != 0
 				|| inSpawnArea(m.getX(), m.getZ())) return;
 		for (Map.Entry<String, State> e : STATES.entrySet()) {
 			State os = e.getValue();
 			Mannequin o = os.entity;
 			if (o == null || o == m || o.isRemoved() || !o.isAlive() || os.ritual > 0 || os.foe != null || os.foeP != null
 					|| os.mine != null || BotBuilder.busy(e.getKey())) continue;
-			if (o.distanceToSqr(m) > 36) continue;
-			if (meetDecision(r.nick, e.getKey(), level.getGameTime()) != 2) continue; // gildia tylko w 45% spotkań
+			if (o.distanceToSqr(m) > (r.clan == null ? 100 : 36)) continue;
+			if (meetDecision(r.nick, e.getKey(), level.getGameTime()) != 2) continue; // gildia tylko przy decyzji "gildia"
 			Rec ro = recOf(e.getKey());
 			if (ro == null || (r.clan != null && ro.clan != null)) continue;
 			String c = r.clan != null ? r.clan : ro.clan;
@@ -1796,6 +1872,8 @@ public final class BotManager {
 			}
 			startTour(joiner, clan);
 		}
+		if (!aHad) BotBuilder.cancel(a.nick); // od razu po założeniu/dołączeniu: wspólny mur i baza (istniejący członek budujący nie jest przerywany)
+		if (!bHad) BotBuilder.cancel(b.nick);
 		save();
 		BotChat.event(SRV, "ally", a.nick);
 		if (SRV != null) {
@@ -1828,7 +1906,7 @@ public final class BotManager {
 			return;
 		}
 		for (int tries = 0; tries < 20; tries++) {
-			int x = RNG.nextInt(HALF * 2 + 1) - HALF, z = RNG.nextInt(HALF * 2 + 1) - HALF;
+			int x = RNG.nextInt(HALF_BOT * 2 + 1) - HALF_BOT, z = RNG.nextInt(HALF_BOT * 2 + 1) - HALF_BOT;
 			if (Math.abs(x) < 40 && Math.abs(z) < 50) continue;
 			level.getChunk(x >> 4, z >> 4);
 			if (isWaterAt(level, x + 0.5, z + 0.5)) continue;
@@ -1900,6 +1978,26 @@ public final class BotManager {
 		return level.getBlockState(bp).is(net.minecraft.world.level.block.Blocks.COBWEB) || level.getBlockState(bp.above()).is(net.minecraft.world.level.block.Blocks.COBWEB);
 	}
 
+	/** Bot w pajęczynie stoi i rozcina ją mieczem w tempie gracza (ok. 0,4 s mieczem, 0,5 s nożycami, 2 s gołą ręką). */
+	private static void webStuck(ServerLevel level, State s) {
+		Mannequin m = s.entity;
+		if (!inCobweb(level, m)) {
+			s.webT = 0;
+			return;
+		}
+		s.stunT = Math.max(s.stunT, 2);
+		ItemStack hand = m.getMainHandItem();
+		int need = hand.is(net.minecraft.tags.ItemTags.SWORDS) ? 8 : hand.is(Items.SHEARS) ? 10 : 40;
+		if (s.webT % 4 == 0) m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+		if (++s.webT >= need) {
+			BlockPos bp = m.blockPosition();
+			for (BlockPos q : new BlockPos[] {bp, bp.above()}) {
+				if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.COBWEB)) level.destroyBlock(q, false);
+			}
+			s.webT = 0;
+		}
+	}
+
 	private static boolean passable(ServerLevel level, BlockPos p) {
 		BlockState st = level.getBlockState(p);
 		return st.isAir() || st.getCollisionShape(level, p).isEmpty();
@@ -1908,13 +2006,7 @@ public final class BotManager {
 	/** Bot rozwala pajęczynę, w której utknął, i bloki, którymi ktoś go zamurował (cztery strony na wysokości stóp i głowy). */
 	private static void unstick(ServerLevel level, Mannequin m) {
 		BlockPos bp = m.blockPosition();
-		if (inCobweb(level, m)) {
-			if (RNG.nextInt(3) == 0) {
-				for (BlockPos q : new BlockPos[] {bp, bp.above()}) if (level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.COBWEB)) level.destroyBlock(q, false);
-				m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
-			}
-			return;
-		}
+		if (inCobweb(level, m)) return; // pajęczyną zajmuje się webStuck
 		int closed = 0;
 		for (net.minecraft.core.Direction d : net.minecraft.core.Direction.Plane.HORIZONTAL) {
 			if (!passable(level, bp.relative(d)) && !passable(level, bp.above().relative(d))) closed++;
@@ -2300,6 +2392,26 @@ public final class BotManager {
 		return false;
 	}
 
+	/** Bot bez gildii (nie sprzymierzony z graczem) idzie do najbliższego bota, który ma wolne miejsce w gildii albo też jej nie ma. */
+	private static boolean seekGuild(ServerLevel level, Rec r, State s, Mannequin m) {
+		if (r.clan != null || r.partner != null || s.ritual > 0 || s.proposeTo != null || RNG.nextInt(3) != 0) return false;
+		Mannequin best = null;
+		double bd = 120 * 120;
+		for (Map.Entry<String, State> e : STATES.entrySet()) {
+			Mannequin o = e.getValue().entity;
+			if (o == null || o == m || o.isRemoved() || !o.isAlive() || e.getKey().equals(r.nick) || inSpawnArea(o.getX(), o.getZ())) continue;
+			Rec ro = recOf(e.getKey());
+			if (ro == null || ro.partner != null || (ro.clan != null && clanSize(ro.clan) >= 10)) continue;
+			double d = o.distanceToSqr(m);
+			if (d < bd && d > 25) { bd = d; best = o; }
+		}
+		if (best == null) return false;
+		s.tx = best.getX() + RNG.nextInt(5) - 2;
+		s.tz = best.getZ() + RNG.nextInt(5) - 2;
+		s.wait = 0;
+		return true;
+	}
+
 	private static final Map<String, Long> BUFF = new HashMap<>();
 
 	/** Przed walką wysokopoziomowy bot "pije miksturę": siła i szybkość na 30 s (raz na minutę). */
@@ -2320,6 +2432,7 @@ public final class BotManager {
 			ItemStack st = c.getItem(i);
 			if (!st.is(Items.ENDER_PEARL)) continue;
 			int hx = (int) Math.floor(r.hx), hz = (int) Math.floor(r.hz);
+			if (ChydroKlatkaManager.isCaged(level, s.entity.blockPosition())) return false; // z chydro klatki nie ucieka perłą
 			if (!level.hasChunkAt(new BlockPos(hx, 64, hz))) return false;
 			int gy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, hx, hz);
 			st.shrink(1);
@@ -2364,7 +2477,8 @@ public final class BotManager {
 			ItemStack st = c.getItem(i);
 			if (!st.is(Items.COBWEB)) continue;
 			BlockPos p = f.blockPosition();
-			if (level.getBlockState(p).isAir()) {
+			if (ChydroKlatkaManager.isCaged(level, p)) return; // w chydro klatce nie stawiają pajęczyn
+			if (level.getBlockState(p).isAir() && !passable(level, p.below())) { // tylko na ziemi, nigdy w powietrzu
 				level.setBlock(p, net.minecraft.world.level.block.Blocks.COBWEB.defaultBlockState(), 3);
 				st.shrink(1);
 			}
@@ -2705,8 +2819,8 @@ public final class BotManager {
 	private static void sidestep(Mannequin m, State s, double dx, double dz) {
 		double ang = Math.atan2(dz, dx) + (RNG.nextBoolean() ? 1 : -1) * Math.toRadians(60 + RNG.nextInt(60));
 		double len = 6 + RNG.nextInt(8);
-		s.tx = Math.max(-HALF + 1, Math.min(HALF - 1, m.getX() + Math.cos(ang) * len));
-		s.tz = Math.max(-HALF + 1, Math.min(HALF - 1, m.getZ() + Math.sin(ang) * len));
+		s.tx = Math.max(-HALF_BOT + 1, Math.min(HALF_BOT - 1, m.getX() + Math.cos(ang) * len));
+		s.tz = Math.max(-HALF_BOT + 1, Math.min(HALF_BOT - 1, m.getZ() + Math.sin(ang) * len));
 		s.wait = 0;
 	}
 
@@ -2782,8 +2896,8 @@ public final class BotManager {
 			double ang = RNG.nextDouble() * Math.PI * 2;
 			double nx = m.getX() + Math.cos(ang) * range * RNG.nextDouble();
 			double nz = m.getZ() + Math.sin(ang) * range * RNG.nextDouble();
-			s.tx = Math.max(-HALF + 1, Math.min(HALF - 1, nx));
-			s.tz = Math.max(-HALF + 1, Math.min(HALF - 1, nz));
+			s.tx = Math.max(-HALF_BOT + 1, Math.min(HALF_BOT - 1, nx));
+			s.tz = Math.max(-HALF_BOT + 1, Math.min(HALF_BOT - 1, nz));
 			if (r.clan != null && RNG.nextInt(8) == 0) { // trzymają się razem z sojusznikami
 				for (Map.Entry<String, State> e : STATES.entrySet()) {
 					Mannequin a = e.getValue().entity;
@@ -2805,8 +2919,8 @@ public final class BotManager {
 		double speed = (0.13 + 0.018 * r.level) * (s.sprintT > 0 ? 1.6 : 1.0); // bloków na tick
 		double step = Math.min(speed, dist);
 		double nx = m.getX() + dx / dist * step, nz = m.getZ() + dz / dist * step;
-		nx = Math.max(-HALF + 0.5, Math.min(HALF - 0.5, nx));
-		nz = Math.max(-HALF + 0.5, Math.min(HALF - 0.5, nz));
+		nx = Math.max(-HALF_BOT + 0.5, Math.min(HALF_BOT - 0.5, nx));
+		nz = Math.max(-HALF_BOT + 0.5, Math.min(HALF_BOT - 0.5, nz));
 		if (!level.hasChunkAt(new net.minecraft.core.BlockPos((int) Math.floor(nx), 64, (int) Math.floor(nz)))) {
 			s.tx = m.getX(); s.tz = m.getZ(); // nie wchodzimy w niezaładowany teren
 			return;
@@ -2842,11 +2956,11 @@ public final class BotManager {
 		for (ServerPlayer p : level.players()) {
 			double px = p.getX(), pz = p.getZ(), py = p.getY();
 			for (int sx = -1; sx <= 1; sx += 2) {
-				double wx = sx * HALF;
+				double wx = sx * HALF_BOT;
 				if (Math.abs(px - wx) < 40) line(level, wx, pz, py, true);
 			}
 			for (int sz = -1; sz <= 1; sz += 2) {
-				double wz = sz * HALF;
+				double wz = sz * HALF_BOT;
 				if (Math.abs(pz - wz) < 40) line(level, wz, px, py, false);
 			}
 		}

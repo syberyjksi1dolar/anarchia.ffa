@@ -38,10 +38,11 @@ import net.minecraft.world.scores.criteria.ObjectiveCriteria;
  */
 public final class StatsSidebar {
 	private static final String OBJ_NAME = "anarchia_stats";
-	private static final int LINES = 7;
+	private static final int LINES = 8;
 
 	public static class Stat {
 		public int kills;
+		public int botKills;
 		public int deaths;
 		public int streak;
 		public long seconds;
@@ -122,8 +123,9 @@ public final class StatsSidebar {
 				: Component.literal("KLAN-" + guild).withStyle(BotManager.guildFormat(guild)));
 		lines[3] = line("Serca: ", num((int) (p.getMaxHealth() / 2.0F), ChatFormatting.RED));
 		lines[4] = line("Zabójstwa: ", num(s.kills, ChatFormatting.GREEN));
-		lines[5] = line("Śmierci: ", num(s.deaths, ChatFormatting.DARK_RED));
-		lines[6] = line("Pieniądze: ", num(Pieniadze.format(p), ChatFormatting.GOLD));
+		lines[5] = line("Zabite boty: ", num(s.botKills, ChatFormatting.AQUA));
+		lines[6] = line("Śmierci: ", num(s.deaths, ChatFormatting.DARK_RED));
+		lines[7] = line("Pieniądze: ", num(Pieniadze.format(p), ChatFormatting.GOLD));
 		p.connection.send(new ClientboundSetObjectivePacket(OBJ, 2));
 		for (int i = 0; i < LINES; i++) {
 			p.connection.send(new ClientboundSetScorePacket("l" + i, OBJ_NAME, LINES - i, Optional.of(lines[i]),
@@ -148,6 +150,10 @@ public final class StatsSidebar {
 				Stat k = stat(killer);
 				k.kills++;
 				k.streak++;
+			}
+			if (source.getEntity() instanceof ServerPlayer bk && entity instanceof net.minecraft.world.entity.decoration.Mannequin mq
+					&& BotManager.isBot(mq)) {
+				stat(bk).botKills++; // licznik zabitych botów
 			}
 		});
 

@@ -171,6 +171,11 @@ final class BotBuilder {
 		}
 	}
 
+	/** Przerywa bieżącą budowę (np. po założeniu gildii bot od razu bierze się za wspólny mur). */
+	static void cancel(String nick) {
+		JOBS.remove(nick);
+	}
+
 	/** Wywoływane co 2 s dla bota; zwraca true, gdy bot jest zajęty budową. */
 	static boolean step(ServerLevel level, String nick, Mannequin m) {
 		Job j = JOBS.get(nick);
@@ -183,7 +188,8 @@ final class BotBuilder {
 			int[] cw = BotManager.clanWallInfo(nick); // mur sojuszu albo null
 			double[] cb = BotManager.clanBaseHome(nick);
 			Job n = new Job();
-			if (!guard && wi[2] == 0) { // najpierw mur dookoła własnej działki
+			boolean clanFirst = cw != null && cb != null && cw[2] == 0 && BotManager.clanMembers(nick) >= 2; // świeża gildia: najpierw wspólny mur i baza
+			if (!guard && wi[2] == 0 && !clanFirst) { // najpierw mur dookoła własnej działki
 				double ddx = home[0] - m.getX(), ddz = home[1] - m.getZ();
 				if (ddx * ddx + ddz * ddz > 144) { // najpierw wraca na swoją działkę
 					BotManager.goTo(nick, home[0], home[1]);

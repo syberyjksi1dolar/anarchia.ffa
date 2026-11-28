@@ -215,7 +215,7 @@ public final class SkrzynieManager {
 				.append(icon.getHoverName()), false);
 	}
 
-	/** /skrzynia nazwa - otwiera skrzynię z animacją bez stawiania bloku (zużywa klucz). */
+	/** /skrzynia nazwa - otwiera menu skrzyni (wszystkie przyciski) bez stawiania bloku; klucz zużywa dopiero przycisk otwarcia. */
 	public static int openByCommand(ServerPlayer sp, String name) {
 		Crates.Crate crate = find(name);
 		if (crate == null) {
@@ -229,10 +229,7 @@ public final class SkrzynieManager {
 		sp.openMenu(new net.minecraft.world.SimpleMenuProvider(
 				(id, inv, p) -> new SkrzyniaMenu(id, inv, container, crate, sp.blockPosition()),
 				Component.literal(crate.name())));
-		if (sp.containerMenu instanceof SkrzyniaMenu m) {
-			request(sp, m, true);
-		}
-		return 1;
+		return 1; // menu ze wszystkimi przyciskami, jak po kliknięciu w postawioną skrzynię; animacja startuje z przycisku
 	}
 
 	private static final java.util.Map<String, Object[]> BOT_OPEN = new java.util.HashMap<>(); // nick -> {crate, reward, koniec}

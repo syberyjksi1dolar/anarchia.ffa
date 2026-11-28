@@ -113,6 +113,14 @@ public final class ChydroKlatkaManager {
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> onUseBlock(player, level, hand, hit));
 	}
 
+	/** Czy dany punkt leży wewnątrz aktywnej chydro klatki (boty nie używają tam pereł ani pajęczyn). */
+	public static boolean isCaged(ServerLevel level, BlockPos p) {
+		for (Cage c : CAGES) {
+			if (c.level == level && c.contains(p)) return true;
+		}
+		return false;
+	}
+
 	public static void trap(ServerLevel level, BlockPos center, UUID owner) {
 		// Zakresy względem pozycji celu. Przy parzystym wymiarze nie da się wycentrować idealnie,
 		// więc klatka jest o jeden blok dalej w stronę +X.

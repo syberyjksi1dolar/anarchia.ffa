@@ -61,8 +61,55 @@ public final class BotChat {
 	private static final String[] UNSURE = {"nie wiem xd", "hmm", "no nie wiem", "a kto wie", "możliwe", "lol", "xd", "serio?"};
 	private static final String[] FUN = {"xd", "lol", "no", "haha", "gg", "heh", "nice"};
 
+	/** Wiadomość jak od człowieka: czasem bez polskich znaków, literówka i poprawka w następnej wiadomości. */
+	private static String humanize(String text, String[] fix) {
+		String s = text;
+		if (RNG.nextInt(100) < 25) { // część graczy pisze bez ogonków
+			s = s.replace('ą', 'a').replace('ć', 'c').replace('ę', 'e').replace('ł', 'l').replace('ń', 'n')
+					.replace('ó', 'o').replace('ś', 's').replace('ź', 'z').replace('ż', 'z');
+		}
+		if (RNG.nextInt(100) < 8 && s.length() > 5) { // literówka: zamiana dwóch liter
+			int i = 1 + RNG.nextInt(s.length() - 3);
+			if (Character.isLetter(s.charAt(i)) && Character.isLetter(s.charAt(i + 1))) {
+				String bad = s.substring(0, i) + s.charAt(i + 1) + s.charAt(i) + s.substring(i + 2);
+				if (RNG.nextInt(3) == 0) fix[0] = "*" + s.substring(Math.max(0, s.lastIndexOf(' ', i) + 1), Math.max(i + 2, s.indexOf(' ', i + 2) < 0 ? s.length() : s.indexOf(' ', i + 2)));
+				s = bad;
+			}
+		}
+		return s;
+	}
+
 	public static void say(MinecraftServer server, String nick, String text) {
-		server.getPlayerList().broadcastSystemMessage(Component.literal("<" + nick + "> " + text), false);
+		String[] fix = new String[1];
+		String out = humanize(text, fix);
+		server.getPlayerList().broadcastSystemMessage(Component.literal("<" + nick + "> " + out), false);
+		if (fix[0] != null) QUEUE.add(new Msg(server.getTickCount() + 25 + RNG.nextInt(30), nick, fix[0]));
+	}
+
+	/** Gracz wchodzi na serwer: któryś bot (czasem) się wita. */
+	static void greetJoin(MinecraftServer server, String playerName) {
+		List<String> alive = BotManager.aliveNicks();
+		if (alive.isEmpty() || RNG.nextInt(100) >= 60) return;
+		String who = alive.get(RNG.nextInt(alive.size()));
+		String[] g = {"siema " + playerName, "elo " + playerName, "witaj " + playerName + " 👋", "o, " + playerName + " wbił", "hej " + playerName};
+		QUEUE.add(new Msg(server.getTickCount() + 60 + RNG.nextInt(100), who, g[RNG.nextInt(g.length)]));
+	}
+
+	/** Bot zabił gracza: czasem coś napisze. */
+	static void killedPlayer(MinecraftServer server, String bot, String victim) {
+		if (RNG.nextInt(100) >= 45) return;
+		String[] g = {"gg", "ez", "sorry " + victim + " xd", "nie brałem tego do siebie", "heh, dobra walka", "rip " + victim};
+		QUEUE.add(new Msg(server.getTickCount() + 20 + RNG.nextInt(40), bot, g[RNG.nextInt(g.length)]));
+	}
+
+	/** Gadatliwe boty (charakter 2) piszą częściej: losujemy trzy razy i bierzemy gadułę, jeśli trafi się któraś. */
+	private static String chatty(List<String> alive) {
+		String first = alive.get(RNG.nextInt(alive.size()));
+		for (int i = 0; i < 3; i++) {
+			String c = alive.get(RNG.nextInt(alive.size()));
+			if (BotManager.trait(c) == 2) return c;
+		}
+		return first;
 	}
 
 	private static String pick(String[] a) {
@@ -85,6 +132,7 @@ public final class BotChat {
 	}
 
 	public static void initialize() {
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> greetJoin(server, handler.getPlayer().getGameProfile().name()));
 		ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
 			MinecraftServer server = sender.level().getServer();
 			if (server == null) return;
@@ -101,9 +149,9 @@ public final class BotChat {
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			long t = server.getTickCount();
-			if (t % 400 == 0 && RNG.nextInt(100) < 50) { // co ~20 s ktoś coś napisze
+			if (t % 400 == 0 && RNG.nextInt(100) < 50 || t % 400 == 200 && RNG.nextInt(100) < 25) { // co ~20 s ktoś coś napisze
 				List<String> alive = BotManager.aliveNicks();
-				if (!alive.isEmpty()) QUEUE.add(new Msg(t + 5, alive.get(RNG.nextInt(alive.size())), RNG.nextInt(4) == 0 ? ad() : pick(RANDOM)));
+				if (!alive.isEmpty()) QUEUE.add(new Msg(t + 5, chatty(alive), RNG.nextInt(4) == 0 ? ad() : pick(RANDOM)));
 			}
 			for (int i = QUEUE.size() - 1; i >= 0; i--) {
 				Msg m = QUEUE.get(i);
