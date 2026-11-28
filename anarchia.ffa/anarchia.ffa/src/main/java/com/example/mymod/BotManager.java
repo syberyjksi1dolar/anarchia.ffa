@@ -765,7 +765,7 @@ public final class BotManager {
 				&& r.clan == null && RNG.nextInt(900) == 0) s.afkT = 20 + RNG.nextInt(101); // 10 s - 1 min bez ruchu (tylko boty bez gildii)
 		confine(m, s); // granica 900x900 tylko dla botów: żadna teleportacja nie wyniesie bota poza nią
 		if (s.foe == null && s.foeP == null && !BotBuilder.busy(r.nick) && s.tourPts == null && RNG.nextInt(3) == 0) { // patrzą na gracza w pobliżu jak żywi gracze
-			ServerPlayer near = level.getNearestPlayer(m, 7.0);
+			net.minecraft.world.entity.player.Player near = level.getNearestPlayer(m, 7.0);
 			if (near != null && !near.isSpectator()) {
 				float hy = (float) Math.toDegrees(Math.atan2(-(near.getX() - m.getX()), near.getZ() - m.getZ()));
 				m.setYHeadRot(hy);
