@@ -210,7 +210,7 @@ final class BotBuilder {
 					return true;
 				}
 			}
-			if (guard) return false;
+			if (guard || BotManager.noStructures(nick)) return false; // nowe budowle stawia budowniczy gildii
 			boolean inClan = cw != null && cb != null && cw[2] == 1 && RNG.nextInt(100) < 85; // prawie wszystkie budowle członków gildii (domy, farmy...) powstają wewnątrz muru bazy
 			double[] site = home;
 			int[] swi = wi;

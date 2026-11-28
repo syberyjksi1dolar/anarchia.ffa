@@ -79,6 +79,8 @@ public final class BotManager {
 		double hx, hz;
 		String partner; // UUID gracza, z którym bot zawarł sojusz (gildię)
 		String leaderP; // UUID gracza, który założył gildię i jest jej przywódcą (null = przywódcą jest bot)
+		int shaftX, shaftZ, shaftTop, shaftDepth; // kopalnia hutnika: szyb 3x3 przy murze bazy (shaftTop > 0 = rozpoczęty)
+		boolean shaftDone;
 		String baseClan; // gildia, która przejęła bazę tego bota (po wygranej wojnie); null = baza należy do jego gildii
 	}
 
@@ -107,6 +109,7 @@ public final class BotManager {
 		int stunT;
 		java.util.UUID proposeTo;
 		int propT, propToggles, propTick;
+		long actT;
 		double[] tourPts; // oprowadzanie nowego członka sojuszu: punkty x,z
 		int tourIdx, tourDwell, tourT;
 		String escort; // sojusznik, który oprowadza nowego członka
@@ -407,6 +410,8 @@ public final class BotManager {
 
 	private static int sightDecision(String nick, ServerPlayer p, long now) {
 		if (p.getUUID().equals(GRUDGE.get(nick))) return 1;
+		Rec gr = recOf(nick);
+		if (gr != null && "G".equals(gr.role) && gr.clan != null && gr.partner == null) return 1; // strażnik bramy atakuje każdego poza sojusznikami
 		String key = nick + "|" + p.getUUID();
 		long[] v = SIGHT.get(key);
 		if (v == null || v[1] < now) {
@@ -521,6 +526,7 @@ public final class BotManager {
 		guildWars(server);
 		if (server.getTickCount() % 200 == 11) leaderTags(server);
 		if (server.getTickCount() % 200 == 3) ensureBanners(server);
+		if (server.getTickCount() % 200 == 21) assignRoles();
 		ServerLevel level = server.overworld();
 		if (level == null) return;
 		if (!cleaned) {
@@ -538,10 +544,23 @@ public final class BotManager {
 			provision();
 		}
 		long t = server.getTickCount();
-		for (Rec r : ROSTER) {
+		long t0 = System.nanoTime();
+		int total = ROSTER.size(), spawnBudget = 1; // najwyżej jedno pojawienie się bota na tick (ładowanie terenu jest ciężkie)
+		if (cursor >= total) cursor = 0;
+		int startIdx = cursor, done = 0;
+		for (int bi = 0; bi < total; bi++) {
+			int idx = (startIdx + bi) % total;
+			if (bi > 0 && System.nanoTime() - t0 > BUDGET_NS) { // limit czasu: serwer ma zawsze 20 TPS, reszta botów w następnym ticku
+				cursor = idx;
+				skipped++;
+				break;
+			}
+			done++;
+			Rec r = ROSTER.get(idx);
+			final int order = idx;
 			State s = STATES.computeIfAbsent(r.nick, k -> {
 				State n = new State();
-				n.respawnIn = RNG.nextInt(100) + 20; // boty pojawiają się stopniowo
+				n.respawnIn = 20 + order * 3 + RNG.nextInt(3); // boty pojawiają się stopniowo, po jednym na ok. 3 ticki
 				return n;
 			});
 			boolean alive = s.entity != null && !s.entity.isRemoved() && s.entity.isAlive();
@@ -553,7 +572,8 @@ public final class BotManager {
 				s.foe = null;
 				s.foeP = null;
 				s.mine = null;
-				if (--s.respawnIn <= 0) {
+				if (--s.respawnIn <= 0 && spawnBudget > 0) {
+					spawnBudget--;
 					spawn(server, level, r, s);
 					s.respawnIn = 100; // ponowna próba po 5 s, jeśli się nie udało
 				}
@@ -564,12 +584,20 @@ public final class BotManager {
 			s.lz = s.entity.getZ();
 			if (inCobweb(level, s.entity)) s.stunT = Math.max(s.stunT, 2); // w pajęczynie nie chodzi, dopóki jej nie rozwali
 			if (s.stunT > 0) s.stunT--; else moveBot(level, r, s); // unieruchomiony (np. zamrożony eventówką) nie chodzi i nie bije
-			if (t % 10 == 0) {
+			if ((t + Math.floorMod(r.nick.hashCode(), 10)) % 10 == 0 || t - s.actT >= 20) { // co 10 ticków, ale każdy bot w innym ticku (bez skoków lagów)
+				s.actT = t;
 				activity(level, r, s);
 				maybeStartFight(level, r, s);
 				maybeStartMine(level, r, s);
 				maybeAlly(level, r, s);
 			}
+		}
+		profNs += System.nanoTime() - t0;
+		if (++profTicks >= 600) { // co 30 s: ile średnio kosztują boty
+			MyMod.LOGGER.info("Boty: średnio {} ms/tick, przerwano limitem czasu {} razy w 30 s, ostatnio obsłużono {}/{}", String.format("%.1f", profNs / 1e6 / profTicks), skipped, done, total);
+			profNs = 0;
+			profTicks = 0;
+			skipped = 0;
 		}
 		if (t % 10 == 0) drawBorder(level);
 		if (t % 100 == 50) {
@@ -716,7 +744,8 @@ public final class BotManager {
 		if (s.foe == null && s.foeP == null && s.mine == null && s.tourPts == null && s.fleeT <= 0 && s.rtpT <= 0 && !BotBuilder.busy(r.nick)
 				&& Math.floorMod(r.nick.hashCode() + level.getGameTime(), 40) < 10) { // co ok. 2 s, gdy bot nic nie robi
 			upgradeGear(m, r);
-			if (!lootScan(level, r, m)) harvest(level, r, m);
+			if (roleAct(level, r, s, m)) { /* zajęty zadaniem roli */ }
+			else if (!lootScan(level, r, m)) harvest(level, r, m);
 		}
 		if (BotBuilder.busy(r.nick)) {
 			if (s.act++ % 2 == 0) BotBuilder.step(level, r.nick, m); // w trakcie budowy co 1 s
@@ -978,14 +1007,14 @@ public final class BotManager {
 		return false;
 	}
 
-	/** Wolne miejsce przy domu bota (min. 7 bloków od innych botów) albo null, gdy sam dom jest wolny lub nic nie znaleziono. */
+	/** Wolne miejsce przy domu bota (min. 5 bloków od innych botów, 5-9 bloków od zajętego miejsca) albo null, gdy sam dom jest wolny lub nic nie znaleziono. */
 	private static double[] freeNear(ServerLevel level, String self, double hx, double hz) {
-		if (!botWithin(self, hx, hz, 7)) return null;
+		if (!botWithin(self, hx, hz, 5)) return null;
 		for (int t = 0; t < 40; t++) {
-			double ang = RNG.nextDouble() * Math.PI * 2, rad = 7 + RNG.nextDouble() * 8;
+			double ang = RNG.nextDouble() * Math.PI * 2, rad = 5 + RNG.nextDouble() * 4; // 5-9 bloków od zajętego miejsca
 			double x = hx + Math.cos(ang) * rad, z = hz + Math.sin(ang) * rad;
 			if (!level.hasChunkAt(new BlockPos((int) Math.floor(x), 64, (int) Math.floor(z))) || isWaterAt(level, x, z)) continue;
-			if (!botWithin(self, x, z, 7)) return new double[] {x, z};
+			if (!botWithin(self, x, z, 5)) return new double[] {x, z};
 		}
 		return null;
 	}
@@ -1036,7 +1065,22 @@ public final class BotManager {
 	private static void maybeStartMine(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
 		if (s.mine != null || s.foe != null || s.foeP != null || BotBuilder.busy(r.nick) || "G".equals(r.role) || r.partner != null || s.ritual > 0
-				|| RNG.nextInt("B".equals(r.role) ? 120 : 240) != 0) return;
+				|| "F".equals(r.role) || "L".equals(r.role)
+				|| RNG.nextInt("H".equals(r.role) ? 20 : "Z".equals(r.role) ? 60 : "B".equals(r.role) ? 120 : 240) != 0) return;
+		if ("H".equals(r.role)) { // hutnik schodzi własnym szybem 3x3 przy bazie (dopóki go nie wykopie, nie chodzi na zwykłe wyprawy)
+			if (!r.shaftDone) return;
+			Mine hk = new Mine();
+			hk.sx = hk.x = r.shaftX + 0.5;
+			hk.sz = hk.z = r.shaftZ + 0.5;
+			hk.sy = hk.y = r.shaftTop - r.shaftDepth;
+			hk.targetY = (int) hk.y;
+			hk.phase = 1;
+			hk.maxSteps = 90;
+			hk.dir = RNG.nextInt(4);
+			s.mine = hk;
+			m.setPos(hk.x, hk.y, hk.z); // zjeżdża na dół po drabince
+			return;
+		}
 		double x = m.getX(), z = m.getZ();
 		if (Math.abs(x) < 40 && Math.abs(z) < 50) return;
 		if (!hasPickaxe(r.nick) || isWaterAt(level, x, z)) return;
@@ -1060,11 +1104,17 @@ public final class BotManager {
 		return false;
 	}
 
-	private static void endMine(Mannequin m, State s) {
+	private static void endMine(Mannequin m, State s, Rec r) {
 		Mine k = s.mine;
 		s.mine = null;
 		s.wait = 0;
 		if (k != null) {
+			if (r != null && "H".equals(r.role) && r.shaftDone) { // hutnik wspina się po drabince na górę, do bazy
+				m.setPos(r.shaftX + 0.5, r.shaftTop, r.shaftZ + 0.5);
+				s.tx = r.shaftX + 0.5;
+				s.tz = r.shaftZ + 0.5;
+				return;
+			}
 			m.setPos(k.sx, k.sy, k.sz); // wracają na powierzchnię w to samo miejsce
 			s.tx = k.sx;
 			s.tz = k.sz;
@@ -1110,13 +1160,13 @@ public final class BotManager {
 				if (++k.steps >= k.maxSteps) k.phase = 2;
 			}
 		} else {
-			endMine(m, s);
+			endMine(m, s, r);
 			return;
 		}
 		m.setPos(k.x, k.y, k.z);
 	}
 
-	/** Gracz kuca 3 razy szybko obok bota: bot zakłada z nim gildię (gracz zostaje jej przywódcą). */
+	/** Gracz kuca 5 razy szybko (Shift) obok bota: bot zakłada z nim gildię (gracz zostaje jej przywódcą). */
 	private static void crouchTick(MinecraftServer server) {
 		long t = server.getTickCount();
 		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
@@ -1127,7 +1177,7 @@ public final class BotManager {
 			if (!(down && !was) || t < c[3]) continue;
 			if (c[0] == 0 || t - c[1] > 60) { c[0] = 0; c[1] = (int) t; }
 			c[0]++;
-			if (c[0] < 3) continue;
+			if (c[0] < 5) continue;
 			c[0] = 0;
 			String best = null;
 			double bd = 5 * 5;
@@ -1154,7 +1204,7 @@ public final class BotManager {
 			Rec r = recOf(best);
 			State inviter = STATES.get(best);
 			boolean invited = inviter != null && p.getUUID().equals(inviter.proposeTo);
-			if (true) { // 3 kucnięcia obok bota = gildia
+			if (true) { // 5 kucnięć obok bota = gildia
 				if (inviter != null) {
 					inviter.proposeTo = null;
 					if (inviter.entity != null) inviter.entity.setShiftKeyDown(false);
@@ -1179,6 +1229,16 @@ public final class BotManager {
 				p.sendSystemMessage(net.minecraft.network.chat.Component.literal(best + " nie chce gildii. Spróbuj ponownie za chwilę.").withStyle(net.minecraft.ChatFormatting.GRAY));
 			}
 		}
+	}
+
+	/** Gildia gracza (np. D7) albo null - do panelu statystyk. */
+	public static String guildOf(java.util.UUID id) {
+		return playerClan(id.toString());
+	}
+
+	/** Kolor gildii do wyświetlania nazwy. */
+	public static net.minecraft.ChatFormatting guildFormat(String clan) {
+		return TAG_COLORS[guildColor(clan)];
 	}
 
 	/** Klan (sojusz) gracza: klan botów, z którymi jest sprzymierzony; null, gdy nie ma. */
@@ -1329,14 +1389,29 @@ public final class BotManager {
 		return false;
 	}
 
+	/** Członek gildii, który nie buduje nowych budowli (robi to budowniczy B): przywódca, zbieracz, farmer, hutnik. */
+	public static boolean noStructures(String nick) {
+		Rec r = recOf(nick);
+		return r != null && r.clan != null && r.partner == null && ("L".equals(r.role) || "Z".equals(r.role) || "F".equals(r.role) || "H".equals(r.role));
+	}
+
 	public static boolean isBuilder(String nick) {
 		for (Rec r : ROSTER) if (r.nick.equals(nick)) return "B".equals(r.role);
 		return false;
 	}
 
+	private static final long BUDGET_NS = 20_000_000L; // 20 ms na tick dla wszystkich botów
+	private static int cursor = 0, skipped = 0, profTicks = 0;
+	private static long profNs = 0;
+
+	private static final Map<String, Rec> REC_IDX = new HashMap<>();
+
 	private static Rec recOf(String nick) {
-		for (Rec r : ROSTER) if (r.nick.equals(nick)) return r;
-		return null;
+		if (REC_IDX.size() != ROSTER.size()) { // indeks po nicku (zamiast przeszukiwania 300 botów za każdym razem)
+			REC_IDX.clear();
+			for (Rec r : ROSTER) REC_IDX.put(r.nick, r);
+		}
+		return REC_IDX.get(nick);
 	}
 
 	/** Liczba członków sojuszu bota (0, gdy nie ma sojuszu). */
@@ -1527,7 +1602,7 @@ public final class BotManager {
 		return (int) v[0];
 	}
 
-	/** Bot bez sojuszu, który stoi blisko innego wolnego bota, zaczyna rytuał: 3 szybkie kucnięcia w jego stronę. */
+	/** Bot bez sojuszu, który stoi blisko innego wolnego bota, zaczyna rytuał: 5 szybkich kucnięć w jego stronę. */
 	private static void maybeAlly(ServerLevel level, Rec r, State s) {
 		Mannequin m = s.entity;
 		if (s.ritual > 0 || s.foe != null || s.foeP != null || s.mine != null || BotBuilder.busy(r.nick) || RNG.nextInt(40) != 0
@@ -1543,8 +1618,8 @@ public final class BotManager {
 			if (ro == null || (r.clan != null && ro.clan != null)) continue;
 			String c = r.clan != null ? r.clan : ro.clan;
 			if (c != null && clanSize(c) >= 10) continue;
-			s.ritual = 24; // 3 kucnięcia
-			os.ritual = 24;
+			s.ritual = 40; // 5 kucnięć
+			os.ritual = 40;
 			s.ritualWith = e.getKey();
 			os.ritualWith = r.nick;
 			s.lead = true;
@@ -1724,8 +1799,11 @@ public final class BotManager {
 		save();
 		BotChat.event(SRV, "ally", a.nick);
 		if (SRV != null) {
-			SRV.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal("[" + clan + "] " + a.nick + " i " + b.nick
-					+ " założyli gildię " + clan + ".").withStyle(net.minecraft.ChatFormatting.AQUA), false);
+			boolean fresh = !aHad && !bHad;
+			SRV.getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(fresh
+					? "🤝 Bot " + a.nick + " założył gildię " + clan + " z botem " + b.nick + "!"
+					: "🤝 Bot " + (aHad ? b.nick : a.nick) + " dołączył do gildii " + clan + " (bot " + (aHad ? a.nick : b.nick) + ")!")
+					.withStyle(net.minecraft.ChatFormatting.AQUA), false);
 		}
 	}
 
@@ -1999,6 +2077,229 @@ public final class BotManager {
 		}
 	}
 
+
+	// ---------- role w gildii: przywódca, budowniczy, strażnicy bramy, zbieracze, farmerzy, hutnicy ----------
+
+	private static final String[] ROLE_ORDER = {"L", "B", "G", "G", "Z", "F", "H", "Z", "F", "H"};
+
+	/** Przydziela role w każdej gildii według kolejności członków: przywódca (1), budowniczy (1), 2 strażników, potem zbieracze, farmerzy i hutnicy. */
+	private static void assignRoles() {
+		Map<String, List<Rec>> by = new java.util.LinkedHashMap<>();
+		for (Rec r : ROSTER) if (r.clan != null && r.partner == null) by.computeIfAbsent(r.clan, k -> new ArrayList<>()).add(r);
+		boolean changed = false;
+		for (List<Rec> l : by.values()) {
+			for (int i = 0; i < l.size(); i++) {
+				Rec r = l.get(i);
+				String want = i < ROLE_ORDER.length ? ROLE_ORDER[i] : "Z";
+				if (l.size() == 2) want = i == 0 ? "L" : "B";
+				if (!want.equals(r.role)) {
+					r.role = want;
+					r.buddy = null;
+					changed = true;
+				}
+			}
+		}
+		if (changed) save();
+	}
+
+	/** Pozycja wejścia do muru bazy (brama od północy), tuż wewnątrz muru. */
+	private static double[] gatePos(String nick) {
+		double[] cb = clanBaseHome(nick);
+		int[] cw = clanWallInfo(nick);
+		if (cb == null || cw == null || cw[0] < 5) return null;
+		return new double[] {Math.floor(cb[0]) + 0.5, Math.floor(cb[1]) - cw[0] / 2 + 3};
+	}
+
+	/** Strażnicy stoją przy bramie bazy, przywódca zostaje w bazie. Zwraca true, gdy bot ma w tym ticku robić tylko to. */
+	private static boolean guildStep(ServerLevel level, Rec r, State s) {
+		if (r.clan == null || r.partner != null || s.foe != null || s.foeP != null || s.mine != null || BotBuilder.busy(r.nick) || s.ritual > 0 || s.tourPts != null) return false;
+		if ("G".equals(r.role)) {
+			double[] g = gatePos(r.nick);
+			if (g == null) return false;
+			double dx = g[0] - s.entity.getX(), dz = g[1] - s.entity.getZ();
+			if (dx * dx + dz * dz > 36) {
+				s.tx = g[0];
+				s.tz = g[1];
+				s.wait = 0;
+				return false; // idzie do bramy zwykłym ruchem
+			}
+			pace(level, s.entity, s, g[0], g[1], 2.5); // przy bramie stoi i się rozgląda
+			return true;
+		}
+		if ("L".equals(r.role)) {
+			double[] cb = clanBaseHome(r.nick);
+			if (cb != null) {
+				double dx = cb[0] - s.entity.getX(), dz = cb[1] - s.entity.getZ();
+				if (dx * dx + dz * dz > 30 * 30) {
+					s.tx = cb[0];
+					s.tz = cb[1];
+					s.wait = 0;
+				}
+			}
+		}
+		return false;
+	}
+
+	private static int carried(SimpleContainer c) {
+		int n = 0;
+		for (int i = 0; i < c.getContainerSize(); i++) {
+			ItemStack st = c.getItem(i);
+			if (st.is(net.minecraft.tags.ItemTags.LOGS) || st.is(Items.COBBLESTONE)) n += st.getCount();
+		}
+		return n;
+	}
+
+	/** Zadania ról co ok. 2 s, gdy bot nic innego nie robi. Zwraca true, gdy bot zajął się rolą. */
+	private static boolean roleAct(ServerLevel level, Rec r, State s, Mannequin m) {
+		if (r.clan == null || r.partner != null || r.role == null) return false;
+		double[] cb = clanBaseHome(r.nick);
+		int[] cw = clanWallInfo(r.nick);
+		if (cb == null || cw == null) return false;
+		switch (r.role) {
+			case "Z" -> { // zbieracz: kamień i drewno oddaje budowniczemu (wyrzuca przedmioty, jak klawiszem Q)
+				SimpleContainer c = inv(r.nick);
+				if (carried(c) < 300) return false;
+				Mannequin bm = null;
+				for (Rec o : ROSTER) {
+					if (!r.clan.equals(o.clan) || !"B".equals(o.role) || o.partner != null) continue;
+					State bs = STATES.get(o.nick);
+					if (bs != null && bs.entity != null && bs.entity.isAlive() && !bs.entity.isRemoved()) bm = bs.entity;
+				}
+				if (bm == null) return false;
+				double d = bm.distanceToSqr(m);
+				if (d > 9) {
+					s.tx = bm.getX();
+					s.tz = bm.getZ();
+					s.wait = 0;
+					return true;
+				}
+				for (int i = 0; i < c.getContainerSize(); i++) {
+					ItemStack st = c.getItem(i);
+					if (st.is(net.minecraft.tags.ItemTags.LOGS) || st.is(Items.COBBLESTONE)) {
+						int give = Math.min(st.getCount(), 64);
+						ItemStack out = st.copyWithCount(give);
+						st.shrink(give);
+						if (st.isEmpty()) c.setItem(i, ItemStack.EMPTY);
+						ItemEntity ie = new ItemEntity(level, m.getX(), m.getY() + 1.0, m.getZ(), out);
+						ie.setDeltaMovement((bm.getX() - m.getX()) * 0.12, 0.15, (bm.getZ() - m.getZ()) * 0.12);
+						OWN_DROPS.put(ie.getUUID(), r.nick); // zbieracz nie podnosi z powrotem tego, co oddał
+						level.addFreshEntity(ie);
+						m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+						c.setChanged();
+						break;
+					}
+				}
+				return true;
+			}
+			case "F" -> { // farmer: plony w bazie, zwierzęta na mięso (piec w warsztacie przepala je sam)
+				BlockPos bp = BlockPos.containing(cb[0], m.getY(), cb[1]);
+				BlockPos crop = null;
+				double bd = Double.MAX_VALUE;
+				int rad = Math.max(8, cw[0] / 2);
+				for (int dx = -rad; dx <= rad; dx += 1) {
+					for (int dz = -rad; dz <= rad; dz += 1) {
+						for (int dy = -2; dy <= 2; dy++) {
+							BlockPos q = bp.offset(dx, dy, dz);
+							BlockState st = level.getBlockState(q);
+							if (st.getBlock() instanceof net.minecraft.world.level.block.CropBlock cb2 && cb2.isMaxAge(st)) {
+								double d = q.distSqr(m.blockPosition());
+								if (d < bd) { bd = d; crop = q; }
+							}
+						}
+					}
+				}
+				if (crop != null) {
+					if (bd <= 6.25) {
+						BlockState st = level.getBlockState(crop);
+						level.destroyBlock(crop, true);
+						level.setBlock(crop, st.getBlock().defaultBlockState(), 3); // sadzi od nowa
+						m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+					} else {
+						s.tx = crop.getX() + 0.5;
+						s.tz = crop.getZ() + 0.5;
+						s.wait = 0;
+					}
+					return true;
+				}
+				net.minecraft.world.entity.animal.Animal prey = null;
+				double pd = Double.MAX_VALUE;
+				for (net.minecraft.world.entity.animal.Animal a : level.getEntitiesOfClass(net.minecraft.world.entity.animal.Animal.class, m.getBoundingBox().inflate(24, 6, 24))) {
+					net.minecraft.world.entity.EntityType<?> ty = a.getType();
+					if (ty != net.minecraft.world.entity.EntityType.COW && ty != net.minecraft.world.entity.EntityType.PIG
+							&& ty != net.minecraft.world.entity.EntityType.SHEEP && ty != net.minecraft.world.entity.EntityType.CHICKEN) continue;
+					double d = a.distanceToSqr(m);
+					if (d < pd) { pd = d; prey = a; }
+				}
+				if (prey != null) {
+					if (pd <= 6.25) {
+						prey.hurtServer(level, level.damageSources().mobAttack(m), 8f);
+						m.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+					} else {
+						s.tx = prey.getX();
+						s.tz = prey.getZ();
+						s.wait = 0;
+					}
+					return true;
+				}
+				return false;
+			}
+			case "H" -> { // hutnik: najpierw kopie własny szyb 3x3 z drabinką, potem schodzi nim po rudy
+				if (r.shaftDone) return false;
+				if (r.shaftTop == 0) {
+					int half = cw[0] / 2;
+					r.shaftX = (int) Math.floor(cb[0]) + half - 3;
+					r.shaftZ = (int) Math.floor(cb[1]) + half - 3;
+					r.shaftTop = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, r.shaftX, r.shaftZ);
+					r.shaftDepth = 0;
+				}
+				double dx = r.shaftX + 0.5 - m.getX(), dz = r.shaftZ + 0.5 - m.getZ();
+				if (r.shaftDepth == 0 && dx * dx + dz * dz > 25) {
+					s.tx = r.shaftX + 0.5;
+					s.tz = r.shaftZ + 0.5;
+					s.wait = 0;
+					return true;
+				}
+				for (int k = 0; k < 2; k++) { // dwie warstwy co 2 s
+					int y = r.shaftTop - 1 - r.shaftDepth;
+					if (y <= -50) {
+						r.shaftDone = true;
+						r.shaftDepth = r.shaftTop + 50; // dno na y = -50
+						save();
+						BotChat.say(level.getServer(), r.nick, "kopalnia gotowa, schodzę ⛏️");
+						return true;
+					}
+					boolean ok = true;
+					for (int ox = -1; ox <= 1 && ok; ox++) {
+						for (int oz = -1; oz <= 1; oz++) {
+							BlockPos q = new BlockPos(r.shaftX + ox, y, r.shaftZ + oz);
+							BlockState st = level.getBlockState(q);
+							if (!level.getFluidState(q).isEmpty() || st.getDestroySpeed(level, q) < 0) { ok = false; break; }
+							if (!st.isAir()) level.destroyBlock(q, true);
+						}
+					}
+					if (!ok) { // lawa/woda/niezniszczalne: kończy szyb na tej głębokości
+						r.shaftDone = true;
+						r.shaftDepth = r.shaftTop - y;
+						save();
+						return true;
+					}
+					BlockPos lad = new BlockPos(r.shaftX, y, r.shaftZ - 1);
+					if (!passable(level, lad.north())) {
+						level.setBlock(lad, net.minecraft.world.level.block.Blocks.LADDER.defaultBlockState()
+								.setValue(net.minecraft.world.level.block.LadderBlock.FACING, net.minecraft.core.Direction.SOUTH), 3);
+					}
+					r.shaftDepth++;
+					m.setPos(r.shaftX + 0.5, y, r.shaftZ + 0.5); // schodzi razem z kopaniem
+					s.tx = m.getX();
+					s.tz = m.getZ();
+				}
+				return true;
+			}
+			default -> { }
+		}
+		return false;
+	}
+
 	private static final Map<String, Long> BUFF = new HashMap<>();
 
 	/** Przed walką wysokopoziomowy bot "pije miksturę": siła i szybkość na 30 s (raz na minutę). */
@@ -2174,6 +2475,7 @@ public final class BotManager {
 			for (ServerPlayer p : level.players()) {
 				if (!p.isAlive() || p.isCreative() || p.isSpectator() || inSpawnArea(p.getX(), p.getZ())) continue;
 				if (p.getUUID().toString().equals(r.partner)) continue; // sojusznik gracz
+				if (r.clan != null && r.clan.equals(playerClan(p.getUUID().toString()))) continue; // gracz z tej samej gildii
 				double d = p.distanceToSqr(m);
 				if (d >= nd) continue;
 				if (s.proposeTo != null) continue; // trwa propozycja sojuszu
@@ -2208,7 +2510,7 @@ public final class BotManager {
 			String mc = r.clan;
 			if (mc != null && mc.equals(clanOf(e.getKey()))) continue; // sojusznik
 			boolean war = atWar(mc, clanOf(e.getKey()));
-			if (!war && meetDecision(r.nick, e.getKey(), level.getGameTime()) != 0) continue; // pokój albo gildia - nie atakują
+			if (!war && !"G".equals(r.role) && meetDecision(r.nick, e.getKey(), level.getGameTime()) != 0) continue; // pokój albo gildia - nie atakują
 			double dx = o.getX() - m.getX(), dz = o.getZ() - m.getZ();
 			double d = dx * dx + dz * dz;
 			if (war) d = d * 0.1; // w czasie wojny wróg z gildii wrogiej jest celem priorytetowym i widoczny z daleka
@@ -2262,7 +2564,7 @@ public final class BotManager {
 			}
 			return true;
 		}
-		if (s.propToggles < 6) { // 3 szybkie kucnięcia
+		if (s.propToggles < 10) { // 5 szybkich kucnięć
 			if (s.propTick++ % 4 == 0) {
 				m.setShiftKeyDown(!m.isShiftKeyDown());
 				s.propToggles++;
@@ -2442,6 +2744,7 @@ public final class BotManager {
 			pace(level, m, s, sl == null ? m.getX() : sl[0], sl == null ? m.getZ() : sl[1], 3);
 			return;
 		}
+		if (guildStep(level, r, s)) return;
 		if (r.partner != null) { // bot sprzymierzony z graczem chodzi za nim
 			ServerPlayer ow = level.getServer().getPlayerList().getPlayer(java.util.UUID.fromString(r.partner));
 			if (ow != null && ow.level() == level && ow.isAlive()) {

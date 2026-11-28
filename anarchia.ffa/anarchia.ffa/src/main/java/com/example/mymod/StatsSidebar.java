@@ -38,7 +38,7 @@ import net.minecraft.world.scores.criteria.ObjectiveCriteria;
  */
 public final class StatsSidebar {
 	private static final String OBJ_NAME = "anarchia_stats";
-	private static final int LINES = 6;
+	private static final int LINES = 7;
 
 	public static class Stat {
 		public int kills;
@@ -117,10 +117,13 @@ public final class StatsSidebar {
 		Component[] lines = new Component[LINES];
 		lines[0] = line("Gracz: ", Component.literal(p.getName().getString()).withStyle(ChatFormatting.WHITE));
 		lines[1] = line("Ranga: ", RangiManager.rankTag(p));
-		lines[2] = line("Serca: ", num((int) (p.getMaxHealth() / 2.0F), ChatFormatting.RED));
-		lines[3] = line("Zabójstwa: ", num(s.kills, ChatFormatting.GREEN));
-		lines[4] = line("Śmierci: ", num(s.deaths, ChatFormatting.DARK_RED));
-		lines[5] = line("Pieniądze: ", num(Pieniadze.format(p), ChatFormatting.GOLD));
+		String guild = BotManager.guildOf(p.getUUID());
+		lines[2] = line("Klan: ", guild == null ? num("brak", ChatFormatting.DARK_GRAY)
+				: Component.literal("KLAN-" + guild).withStyle(BotManager.guildFormat(guild)));
+		lines[3] = line("Serca: ", num((int) (p.getMaxHealth() / 2.0F), ChatFormatting.RED));
+		lines[4] = line("Zabójstwa: ", num(s.kills, ChatFormatting.GREEN));
+		lines[5] = line("Śmierci: ", num(s.deaths, ChatFormatting.DARK_RED));
+		lines[6] = line("Pieniądze: ", num(Pieniadze.format(p), ChatFormatting.GOLD));
 		p.connection.send(new ClientboundSetObjectivePacket(OBJ, 2));
 		for (int i = 0; i < LINES; i++) {
 			p.connection.send(new ClientboundSetScorePacket("l" + i, OBJ_NAME, LINES - i, Optional.of(lines[i]),
